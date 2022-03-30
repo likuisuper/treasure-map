@@ -1,0 +1,1 @@
+mvn install:install-file -Dfile="jd-core-1.1.4.jar" -DgroupId=jd -DartifactId=jd-core -Dversion=1.1.4 -Dpackaging=jar
