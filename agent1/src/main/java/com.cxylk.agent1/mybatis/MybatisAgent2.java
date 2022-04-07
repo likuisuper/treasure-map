@@ -1,20 +1,28 @@
 package com.cxylk.agent1.mybatis;
 
-import javassist.*;
+import javassist.ClassPool;
+import javassist.CtClass;
+import javassist.CtMethod;
+import javassist.LoaderClassPath;
+import org.apache.ibatis.mapping.BoundSql;
 
 import java.io.File;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.security.ProtectionDomain;
-import org.apache.ibatis.mapping.BoundSql;
 
 /**
  * @author likui
  * @date 2022/3/29 下午8:31
- * 这种方式，当使用jar的方式启动后，会报BoundSql无法找到的问题
+ * 相比MybatisAgent1,这个版本将该类所在的类路径加到URLClassloader中
  **/
-public class MybatisAgent1 implements ClassFileTransformer {
+public class MybatisAgent2 implements ClassFileTransformer {
 
         @Override
         public byte[] transform(
@@ -26,22 +34,29 @@ public class MybatisAgent1 implements ClassFileTransformer {
             if(!"org/apache/ibatis/executor/BaseExecutor".equals(className)){
                 return null;
             }
+            try {
+                // tomcat 中可行，在Spring boot中不可行
+                appendToLoader(loader);
+            } catch (Exception e) {
+                System.err.println("jar 注入失败");
+                e.printStackTrace();
+                return null;
+            }
+
             try{
                 ClassPool classPool=new ClassPool();
-                //加入系统路径
                 classPool.appendSystemPath();
-                //还需要加入加载当前类的类加载器路径，否则会访问不到BaseExecutor的
                 classPool.appendClassPath(new LoaderClassPath(loader));
                 CtClass ctClass = classPool.get("org.apache.ibatis.executor.BaseExecutor");
                 //这里监控的是第二个query方法，也就是参数最多的那个，可以查看增强后的代理类
                 CtMethod ctMethod = ctClass.getDeclaredMethods("query")[1];
                 //添加一个局部变量
                 ctMethod.addLocalVariable("info",classPool.get(SqlInfo.class.getName()));
-                ctMethod.insertBefore("info=com.cxylk.agent1.mybatis.MybatisAgent1.begin($args);");
-                ctMethod.insertAfter("com.cxylk.agent1.mybatis.MybatisAgent1.end(info);");
+                ctMethod.insertBefore("info=com.cxylk.agent1.mybatis.MybatisAgent2.begin($args);");
+                ctMethod.insertAfter("com.cxylk.agent1.mybatis.MybatisAgent2.end(info);");
                 System.out.println("插桩成功:"+ctClass.getName());
                 byte[] bytes = ctClass.toBytecode();
-                Files.write(new File("/Users/likui/Workspace/github/treasure-map/boot-example/target/MybatisAgent1$proxy.class").toPath(),bytes);
+                Files.write(new File("/Users/likui/Workspace/github/treasure-map/boot-example/target/MybatisAgent2$proxy.class").toPath(),bytes);
                 return bytes;
             }catch (Exception e){
                 e.printStackTrace();
@@ -71,6 +86,16 @@ public class MybatisAgent1 implements ClassFileTransformer {
         public static void end(SqlInfo sqlInfo){
             sqlInfo.setUseTime(System.currentTimeMillis()-sqlInfo.beginTime);
             System.out.println((sqlInfo.toString()));
+    }
+
+    public void appendToLoader(ClassLoader loader) throws NoSuchMethodException, MalformedURLException, InvocationTargetException, IllegalAccessException {
+        URLClassLoader urlClassLoader= (URLClassLoader) loader;
+        Method method = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
+        method.setAccessible(true);
+        String path = MybatisAgent2.class.getResource("").getPath();//file:/Users/likui/Workspace/github/treasure-map/agent1/target/agent1-0.0.1-SNAPSHOT.jar!/com/cxylk/agent1/mybatis/
+        path=path.substring(0,path.indexOf("!/"));
+        //调用addURL方法将MybatisAgent2的类路径加入到URLClassloader中
+        method.invoke(urlClassLoader,new URL(path));
     }
 
 

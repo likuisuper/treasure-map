@@ -1,0 +1,1 @@
+java -javaagent:/Users/likui/Workspace/github/treasure-map/agent1/target/agent1-0.0.1-SNAPSHOT.jar -jar /Users/likui/Workspace/github/treasure-map/boot-example/target/boot-example-0.0.1-SNAPSHOT.jar
