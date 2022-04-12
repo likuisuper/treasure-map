@@ -2,6 +2,7 @@ package com.cxylk.agent1;
 
 import com.cxylk.agent1.mybatis.MybatisAgent1;
 import com.cxylk.agent1.mybatis.MybatisAgent2;
+import com.cxylk.agent1.mybatis.MybatisAgent3;
 
 import java.lang.instrument.Instrumentation;
 
@@ -13,6 +14,7 @@ public class Agent {
     public static void premain(String args, Instrumentation instrumentation){
         //instrumentation.addTransformer(new ServiceAgent());
 //        instrumentation.addTransformer(new MybatisAgent1());
-        instrumentation.addTransformer(new MybatisAgent2());
+//        instrumentation.addTransformer(new MybatisAgent2());
+        instrumentation.addTransformer(new MybatisAgent3());
     }
 }
