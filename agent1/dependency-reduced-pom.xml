@@ -57,6 +57,18 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>1.8</source>
+          <target>1.8</target>
+          <encoding>UTF-8</encoding>
+          <compilerArguments>
+            <verbose />
+            <bootclasspath>${java.home}/lib/rt.jar</bootclasspath>
+          </compilerArguments>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
   <dependencies>
@@ -65,6 +77,12 @@
       <artifactId>mybatis</artifactId>
       <version>3.5.7</version>
       <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.tomcat.embed</groupId>
+      <artifactId>tomcat-embed-core</artifactId>
+      <version>9.0.60</version>
+      <scope>compile</scope>
     </dependency>
   </dependencies>
 </project>

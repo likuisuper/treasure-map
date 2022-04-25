@@ -1,5 +1,8 @@
 package com.cxylk.agent1;
 
+import com.cxylk.agent1.httpinvoker.HttpProxy1;
+import com.cxylk.agent1.httpinvoker.HttpProxy2;
+import com.cxylk.agent1.httpserver.HttpCollect;
 import com.cxylk.agent1.mybatis.MybatisAgent1;
 import com.cxylk.agent1.mybatis.MybatisAgent2;
 import com.cxylk.agent1.mybatis.MybatisAgent3;
@@ -16,5 +19,10 @@ public class Agent {
 //        instrumentation.addTransformer(new MybatisAgent1());
 //        instrumentation.addTransformer(new MybatisAgent2());
         instrumentation.addTransformer(new MybatisAgent3());
+        //http响应采集
+        instrumentation.addTransformer(new HttpCollect());
+        //http调用采集
+//        HttpProxy1.registerProtocol();
+        HttpProxy2.registerProtocol();
     }
 }
