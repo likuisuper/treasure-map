@@ -770,3 +770,13 @@ public class HttpProxy2 {
 ```
 
 最后在premain方法中调用registerProtocol方法即可。
+
+## 4、JDBC监控
+
+我们都知道一个SQL执行的逻辑为：SQL请求-->jdbc temlate或orm框架-->jdbc-->data source-->driver-->db，
+
+为了**不对使用场景做假设**，屏蔽框架和不同数据库厂商驱动带来的差异，我们选择在jdbc这层做插桩。但是在Java中，driver只是一个规范，其实现是由不同的数据库厂商决定的，所以我们需要针对不同的厂商进行单独插桩，比如以MySQL来说，真正获取connect的是`NonRegisteringDriver`这个类，所以我们对这个类的`connect`进行插桩后，能拿到`Connection`对象，然后我们需要对它进行动态代理，从而实现我们的监控逻辑，同理，通过它可以继续拿到`PreparedStatement`，继续进行动态代理，代理的目的依然是实现我们的监控逻辑，通过它就可以得到执行的SQL，参数等信息。
+
+## 5、Redis监控
+
+Redis有两种客户端，jedis和lettuce，不同的客户端需要做不同的监控处理，比如jedis，它的执行逻辑就是不管是get还是set等命令，最后都是通过`Protocol`类的`sendCommand`方法到Redis服务端，所以我们需要监控这个方法，这样可以得到开始时间和执行的命令等信息。而返回结果是通过`process`这个方法得到的，所以我们插桩这个方法就可以得到结果信息。
