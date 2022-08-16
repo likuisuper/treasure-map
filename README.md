@@ -780,3 +780,65 @@ public class HttpProxy2 {
 ## 5、Redis监控
 
 Redis有两种客户端，jedis和lettuce，不同的客户端需要做不同的监控处理，比如jedis，它的执行逻辑就是不管是get还是set等命令，最后都是通过`Protocol`类的`sendCommand`方法到Redis服务端，所以我们需要监控这个方法，这样可以得到开始时间和执行的命令等信息。而返回结果是通过`process`这个方法得到的，所以我们插桩这个方法就可以得到结果信息。
+
+## 6、Agent整体设计
+
+将service、http、sql等信息采集统一成一套规范。
+
+#### 模块分包
+
+**base模块**：定义采集接口、处理接口，以及采集会话，插桩入口实现
+
+**model数据模块**：定义采集的数据模型，包括http指标、sql指标、service指标
+
+**collect采集器模块**：采集功能的具体实现，包括http采集器、jdbc采集器
+
+**process处理器模块**：处理器功能的具体实现，比如JSON序列化，日志处理
+
+**common基础支持模块**：JSON序列化（这里采用的是GitHub上的一款轻量级日志框架json-io，地址：https://github.com/jdereg/json-io），日志打印（采用JDK自带的日志框架，日志输出目录默认为agent target目录，可自行配置）。
+
+#### 会话功能
+
+一个业务请求通常会涉及多个SQL调用、多个服务调用，监控系统需要能统一辨别，而不是分散 的日志。这就需要一个统一的ID将日志进行关联，相同的ID表示所属同一请求。具体做法是在请 求入服务器时生成一个ID，并保存在线程本地变量(ThreadLocal)中，在该线程下所有日志 要取 出该ID并关联，当请求结束后在删除该ID。
+
+实现：
+
+![](https://s1.ax1x.com/2022/08/16/v0ukb4.png)
+
+#### 数据管道
+
+数据采集完整功能包括：从业务代码中采集具体数据、根据采样率进行过滤、序列化成Json、 基于Http上传。这些需求可以抽象成两部分：采集与加工处理，我们把它设计了两个组件采集器 (Collector)、处理器(Processor)。某个数据采集包括一个采集器以及N个处理器，处理器通过 order进行排序，一起组成了一个数据管道。
+
+![](https://s1.ax1x.com/2022/08/16/v0l6mT.png)
+
+#### 采集器
+
+为了给采集器最大灵活性，这里只定义了一个注册接口，它在Agent加载的时候注册，传递 Instrumentation接口给采集器用于插桩。采集到的数据统一交给会话再进一步加工处理。
+
+#### 处理器
+
+这里处理器的生命周期是与监控会话相同的，每个会话中处理都有独立的实例，在会话开启时实 例化，并通过order 进行排序。采集到数据一次调用处理器的accept 方法，并在该方法中加工 改变数据，交给一下个处理器处理。如果返回Null表示处理完成，不在传递给下一个处理器。 最后处理器提供了一个finish 方法用于 会话结束时调用，以执行一些资源释放，或数据统计的 操作。
+
+#### 效果
+
+请求接口两次，由于我们采集了http信息和sql信息，所以会在日志中打印相关的日志：
+
+~~~
+八月 16, 2022 4:36:13 下午 com.cxylk.agent2.process.LogPrintProcessor accept
+信息: {"jdbcUrl":"jdbc:mysql://172.16.211.139:4000/nuza_system?autoReconnect=true&useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true","sql":"select * from merchant_user where user_name=?","databaseName":"nuza_system","params":[{"index":1,"value":"lktest"}],"traceId":"c6321a3b31564ab689ec4f53c6ab1bdd","beginTime":{"date":{"year":2022,"month":8,"day":16},"time":{"hour":16,"minute":35,"second":46,"nano":238000000}},"useTime":54}
+八月 16, 2022 4:42:20 下午 com.cxylk.agent2.process.LogPrintProcessor accept
+信息: {"url":"http://127.0.0.1:8080/user/find","clientIp":"127.0.0.1","traceId":"c6321a3b31564ab689ec4f53c6ab1bdd","beginTime":{"date":{"year":2022,"month":8,"day":16},"time":{"hour":16,"minute":35,"second":45,"nano":762000000}},"useTime":370182}
+八月 16, 2022 4:42:52 下午 com.cxylk.agent2.process.LogPrintProcessor accept
+信息: {"jdbcUrl":"jdbc:mysql://172.16.211.139:4000/nuza_system?autoReconnect=true&useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true","sql":"select * from merchant_user where user_name=?","databaseName":"nuza_system","params":[{"index":1,"value":"lktest"}],"traceId":"3f0353f1866a4b75adea847449b929d0","beginTime":{"date":{"year":2022,"month":8,"day":16},"time":{"hour":16,"minute":42,"second":52,"nano":593000000}},"useTime":30}
+八月 16, 2022 4:42:52 下午 com.cxylk.agent2.process.LogPrintProcessor accept
+信息: {"url":"http://127.0.0.1:8080/user/find","clientIp":"127.0.0.1","traceId":"3f0353f1866a4b75adea847449b929d0","beginTime":{"date":{"year":2022,"month":8,"day":16},"time":{"hour":16,"minute":42,"second":52,"nano":555000000}},"useTime":87}
+~~~
+
+可以看到，第一次请求的traceId=c6321a3b31564ab689ec4f53c6ab1bdd，第二次请求的traceId=3f0353f1866a4b75adea847449b929d0
+
+当然，如果想让日志直接打印在控制台，可以在日志处理器中使用jdk原生的日志框架：
+
+~~~java
+Logger logger = Logger.getLogger(LogPrintProcessor.class.getName());
+~~~
+

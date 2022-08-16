@@ -17,6 +17,7 @@
         <module>boot-example</module>
         <module>javaagent</module>
         <module>agent1</module>
+        <module>agent2</module>
     </modules>
     <dependencies>
         <dependency>
