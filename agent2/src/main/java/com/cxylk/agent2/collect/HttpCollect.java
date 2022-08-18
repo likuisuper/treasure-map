@@ -101,7 +101,7 @@ public class HttpCollect implements Collect, ClassFileTransformer {
         httpInfo.setUseTime(LocalDateTime.now().toInstant(ZoneOffset.of("+8")).toEpochMilli() - httpInfo.getBeginTime().toInstant(ZoneOffset.of("+8")).toEpochMilli());
         //处理收集数据（json处理，日志打印）
         AgentSession agentSession = AgentSession.get();
-        agentSession.push(agentSession,httpInfo);
+        agentSession.push(httpInfo);
         //关闭当前会话，整个会话结束后（即http、jdbc等数据都采集完）
         AgentSession.close();
 

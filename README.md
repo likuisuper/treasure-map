@@ -791,9 +791,9 @@ Redis有两种客户端，jedis和lettuce，不同的客户端需要做不同的
 
 **model数据模块**：定义采集的数据模型，包括http指标、sql指标、service指标
 
-**collect采集器模块**：采集功能的具体实现，包括http采集器、jdbc采集器
+**collect采集器模块**：采集功能的具体实现，包括http采集器、jdbc采集器、service采集器
 
-**process处理器模块**：处理器功能的具体实现，比如JSON序列化，日志处理
+**process处理器模块**：处理器功能的具体实现，比如JSON序列化，日志处理，基本信息处理（调用链ID，当前的采集方式）
 
 **common基础支持模块**：JSON序列化（这里采用的是GitHub上的一款轻量级日志框架json-io，地址：https://github.com/jdereg/json-io），日志打印（采用JDK自带的日志框架，日志输出目录默认为agent target目录，可自行配置）。
 
@@ -805,19 +805,86 @@ Redis有两种客户端，jedis和lettuce，不同的客户端需要做不同的
 
 ![](https://s1.ax1x.com/2022/08/16/v0ukb4.png)
 
+由于一次请求，执行顺序都是http-->service-->jdbc-->http响应，所以我们在**http采集的begin方法中打开会话，在http采集的end方法中关闭会话**。service和jdbc采集只需将采集到的数据在各自的end方法中进行推送，即调用不同的处理器处理采集数据即可。
+
 #### 数据管道
 
 数据采集完整功能包括：从业务代码中采集具体数据、根据采样率进行过滤、序列化成Json、 基于Http上传。这些需求可以抽象成两部分：采集与加工处理，我们把它设计了两个组件采集器 (Collector)、处理器(Processor)。某个数据采集包括一个采集器以及N个处理器，处理器通过 order进行排序，一起组成了一个数据管道。
 
 ![](https://s1.ax1x.com/2022/08/16/v0l6mT.png)
 
+注：为了后续的兼容，上面的TraceId改为通用信息处理器，它不仅包含了tranceId获取，还包含了采集的类型，应用名称，host等信息：
+
+~~~Java
+public class BaseInfoProcessor implements Processor {
+    @Override
+    public Object accept(AgentSession agentSession,Object o) {
+        if(o instanceof BaseDataNode){
+            ((BaseDataNode)o).setTraceId(agentSession.getSession());
+            ((BaseDataNode)o).setAppName(Agent.config.getProperty("app.name","未定义"));
+            ((BaseDataNode)o).setHost(NetUtils.getLocalHost());
+            ((BaseDataNode)o).setModeType(o.getClass().getSimpleName());
+        }
+        return o;
+    }
+}
+~~~
+
 #### 采集器
 
 为了给采集器最大灵活性，这里只定义了一个注册接口，它在Agent加载的时候注册，传递 Instrumentation接口给采集器用于插桩。采集到的数据统一交给会话再进一步加工处理。
 
+这里需要注意一下service采集，因为service采集是采集我们的业务方法，但是业务方式是很庞大的，我们不能将需要插桩的方法写死，而是要灵活配置，所以我们可以在VM参数中定义`service.include`参数来指明要采集的目标，`service.exclude`参数来指明排除的目标，这里使用了一个jacoco框架中的工具类`WildcardMatcher`来解析参数中的值。
+
 #### 处理器
 
 这里处理器的生命周期是与监控会话相同的，每个会话中处理都有独立的实例，在会话开启时实 例化，并通过order 进行排序。采集到数据一次调用处理器的accept 方法，并在该方法中加工 改变数据，交给一下个处理器处理。如果返回Null表示处理完成，不在传递给下一个处理器。 最后处理器提供了一个finish 方法用于 会话结束时调用，以执行一些资源释放，或数据统计的 操作。
+
+#### 配置文件
+
+我们可以自定义配置文件的优先级，比如基于JVM参数的优先级大于agent的配置文件
+
+~~~Java
+    public static Properties config;
+
+    public static void premain(String args, Instrumentation instrumentation){
+        config = new Properties();
+        // 装截agent 配置文件
+        config.putAll(getAgentConfigs());
+        // 基于JVM参数配置，优先级高
+        if (args != null && !args.trim().equals("")) {
+            try {
+                //多个参数以逗号分隔
+                config.load(new ByteArrayInputStream(
+                        args.replaceAll(",", "\n").getBytes()));
+            } catch (IOException e) {
+                throw new RuntimeException(String.format("agent参数无法解析：%s", args), e);
+            }
+        }
+      ...
+    }
+
+    // 读取agent 配置
+    private static Properties getAgentConfigs() {
+        // 读取agnet 配置，这里得到的就是target目录
+        URL u = Agent.class.getProtectionDomain().getCodeSource().getLocation();
+        File file = new File(new File(u.getFile()).getParentFile(), "conf/config.properties");
+        if (!file.exists() || file.isDirectory()) {
+            logger.warn("找不到配置文件:" + file.getPath());
+            return new Properties();
+        }
+        Properties properties = new Properties();
+        try {
+            properties.load(new FileInputStream(file));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        return properties;
+    }
+~~~
+
+
 
 #### 效果
 
@@ -841,4 +908,6 @@ Redis有两种客户端，jedis和lettuce，不同的客户端需要做不同的
 ~~~java
 Logger logger = Logger.getLogger(LogPrintProcessor.class.getName());
 ~~~
+
+
 

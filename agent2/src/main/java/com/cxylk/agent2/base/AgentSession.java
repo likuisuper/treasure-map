@@ -49,11 +49,19 @@ public class AgentSession {
         return currentSession.get();
     }
 
+    /**
+     * 打开会话，整个调用链中只需在入口处打开，
+     * 由于请求最先经过http，所以在http采集的begin方法中打开
+     */
     public static void open(){
         AgentSession agentSession=new AgentSession();
         currentSession.set(agentSession);
     }
 
+    /**
+     * 关闭会话，整个调用链中只需在结束时关闭，
+     * 由于请求最后是经过http返回给调用方，所以在http采集的end方法中关闭
+     */
     public static void close(){
         Assert.assertTrue(get()!=null);
         try {
@@ -63,12 +71,12 @@ public class AgentSession {
         }
     }
 
-    public void push(AgentSession session,Object node){
+    public void push(Object node){
         Objects.requireNonNull(node);
         for (Processor processor : processorList) {
             //顺序执行处理器逻辑
             //当前参数经过处理后作为下一次处理的参数
-            node = processor.accept(session,node);
+            node = processor.accept(this,node);
             if(node==null){
                 break;
             }

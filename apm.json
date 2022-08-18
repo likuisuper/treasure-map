@@ -1,0 +1,87 @@
+{
+  "template": "apm-*",
+  "mappings": {
+    "_default_": {
+      "_all": {
+        "enabled": true
+      },
+      "properties": {
+        "traceId": {
+          "type": "keyword"
+        },
+        "host": {
+          "type": "keyword"
+        },
+        "appName": {
+          "type": "keyword"
+        },
+        "modelType": {
+          "type": "keyword"
+        },
+        "begin": {
+          "type": "date"
+        },
+        "useTime": {
+          "type": "long"
+        },
+        "databaseName": {
+          "type": "keyword"
+        },
+        "jdbcUrl": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "httpUrl": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "clientIp": {
+          "type": "keyword"
+        },
+        "serviceName": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "simpleName": {
+          "type": "keyword"
+        },
+        "methodName": {
+          "type": "keyword"
+        },
+        "sql": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "error": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        }
+      }
+    }
+  }
+}

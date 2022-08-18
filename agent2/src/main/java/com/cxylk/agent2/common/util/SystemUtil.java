@@ -21,7 +21,7 @@ public class SystemUtil {
     }
 
     /**
-     * 获取agent 部署路径
+     * 获取agent class文件路径
      *
      * @return
      */

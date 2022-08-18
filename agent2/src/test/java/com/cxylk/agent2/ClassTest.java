@@ -16,11 +16,13 @@ import java.util.List;
 public class ClassTest {
     @Test
     public void test() throws URISyntaxException {
-        String currentPackage = Agent.class.getPackage().getName();
-        List result = ReflectionUtils.findAllClassesInPackage(
-                currentPackage.substring(0,currentPackage.lastIndexOf(".")),
-                ClassFilter.of(o-> Collect.class.isAssignableFrom(o)&&!o.isInterface())
-        );
-        result.forEach(System.out::println);
+//        String currentPackage = Agent.class.getPackage().getName();
+//        List result = ReflectionUtils.findAllClassesInPackage(
+//                currentPackage.substring(0,currentPackage.lastIndexOf(".")),
+//                ClassFilter.of(o-> Collect.class.isAssignableFrom(o)&&!o.isInterface())
+//        );
+//        result.forEach(System.out::println);
+
+        System.out.println(System.getProperty("user.dir"));
     }
 }

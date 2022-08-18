@@ -34,7 +34,7 @@ public class JdbcCollects {
         info.setUseTime(LocalDateTime.now().toInstant(ZoneOffset.of("+8")).toEpochMilli() - info.getBeginTime().toInstant(ZoneOffset.of("+8")).toEpochMilli());
         //采集数据处理
         AgentSession agentSession = AgentSession.get();
-        agentSession.push(agentSession,info);
+        agentSession.push(info);
         //System.out.println(info);
     }
 

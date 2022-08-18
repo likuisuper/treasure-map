@@ -69,4 +69,8 @@ public class Agent {
 
         return properties;
     }
+
+    public static String getConfig(String key){
+        return config.getProperty(key);
+    }
 }

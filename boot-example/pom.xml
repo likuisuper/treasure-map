@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.cxylk</groupId>
         <artifactId>treasure-map</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>1.0-SNAPSHOT</version>
     </parent>
     <artifactId>boot-example</artifactId>
     <name>boot-example</name>
