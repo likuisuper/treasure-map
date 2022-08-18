@@ -834,11 +834,60 @@ public class BaseInfoProcessor implements Processor {
 
 为了给采集器最大灵活性，这里只定义了一个注册接口，它在Agent加载的时候注册，传递 Instrumentation接口给采集器用于插桩。采集到的数据统一交给会话再进一步加工处理。
 
-这里需要注意一下service采集，因为service采集是采集我们的业务方法，但是业务方式是很庞大的，我们不能将需要插桩的方法写死，而是要灵活配置，所以我们可以在VM参数中定义`service.include`参数来指明要采集的目标，`service.exclude`参数来指明排除的目标，这里使用了一个jacoco框架中的工具类`WildcardMatcher`来解析参数中的值。
+**ps：**这里需要注意一下service采集，因为service采集是采集我们的业务方法，但是业务方式是很庞大的，我们不能将需要插桩的方法写死，而是要灵活配置，所以我们可以在VM参数中定义`service.include`参数来指明要采集的目标，`service.exclude`参数来指明排除的目标，这里使用了一个jacoco框架中的工具类`WildcardMatcher`来解析参数中的值。
 
 #### 处理器
 
 这里处理器的生命周期是与监控会话相同的，每个会话中处理都有独立的实例，在会话开启时实 例化，并通过order 进行排序。采集到数据一次调用处理器的accept 方法，并在该方法中加工 改变数据，交给一下个处理器处理。如果返回Null表示处理完成，不在传递给下一个处理器。 最后处理器提供了一个finish 方法用于 会话结束时调用，以执行一些资源释放，或数据统计的 操作。
+
+**ps：**日志处理这里需要注意，我们会调用`fileWriter`将数据写入日志，目前会写三种数据，即http数据、service数据、sql数据，所以没写完一种数据后，掉用`flush`方法先写入缓冲区，但是流必须要关闭，不然就会导致日志中会出现多条相同的日志，但是流又不能每次写完一种数据就关闭，这样就会导致流频繁关闭，造成文件不可写入。所以正确的做法应该是定义一个计数器表示采集器的数量，每次进行处理的时候减1，当为0的时候即没有数据要写了，这时候再关闭流：
+
+~~~Java
+    /**
+     * 表示需要处理的收集器数量，当为0后所有数据都处理完毕，目的是为了关闭流
+     */
+    public final AtomicInteger collectCount=new AtomicInteger(3);
+
+
+    public void push(Object node){
+        //每次推数据都-1
+        collectCount.decrementAndGet();
+        Objects.requireNonNull(node);
+        for (Processor processor : processorList) {
+            //顺序执行处理器逻辑
+            //当前参数经过处理后作为下一次处理的参数
+            node = processor.accept(this,node);
+            if(node==null){
+                break;
+            }
+        }
+    }
+
+    //日志处理器
+		@Override
+    public STATUS accept(AgentSession agentSession, String s) {
+        try {
+            logger.info("写入日志-----:"+s);
+            fileWriter.write( s +"\r\n");
+            //刷新缓冲区，此时数据还没有写入文件，只写到缓冲区，后面还可以继续写
+            fileWriter.flush();
+        } catch (IOException e) {
+            logger.error("日志写入失败",e);
+        }finally {
+            //当所有数据都收集完后（即http、service、sql）,再关闭
+            //不然每次收集完一次（比如http）就关闭，会造成流频繁关闭，导致后面无法写
+            if(agentSession.collectCount.get()==0) {
+                try {
+                    //一定要关闭，通知系统后面不能再写数据了，即当前一次会话结束，保证只会打印当次会话日志
+                    fileWriter.close();
+                } catch (IOException e) {
+                    logger.error("文件关闭失败", e);
+                }
+            }
+        }
+        return STATUS.OVER;
+    }
+~~~
 
 #### 配置文件
 
@@ -909,5 +958,83 @@ public class BaseInfoProcessor implements Processor {
 Logger logger = Logger.getLogger(LogPrintProcessor.class.getName());
 ~~~
 
+如果想收集service信息，并且指定收集的范围，可以这样：
 
+~~~java
+-javaagent:/Users/likui/Workspace/github/treasure-map/agent2/target/agent2-0.0.1-SNAPSHOT.jar=service.include=com.cxylk.service.*
+~~~
+
+如果想指定日志文件生成的目录，可以在后面加参数log:
+
+~~~java
+-javaagent:/Users/likui/Workspace/github/treasure-map/agent2/target/agent2-0.0.1-SNAPSHOT.jar=service.include=com.cxylk.service.*,log=xxx
+~~~
+
+## 7、如何打造APM
+
+
+
+经过上面的整体设计后，我们可以直接将改项目打造成APM项目。这里采用filebeat收集日志，然后将日志存储到es，再通过kibana展示。由于现在使用的机器是mac m1，基于arm架构，所以这里采用的框架版本都为7.16.2。
+
+所以我们需要再新建一个日志目录（区别于前面的logger日志），这个日志就是filebeat采集的来源，然后配置filebeat.yml文件：
+
+~~~yml
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /Users/likui/Workspace/github/treasure-map/logs/*.log
+  document_type: "test-log"
+  fields: 
+    agent_version: "1.0"
+  fields_under_root: true
+  tags: ["apm"]
+  # 由于日志文件中日志是换行展示的，所以需要匹配换行
+  multiline.pattern: '^\n'
+  multiline.negate: true
+  multiline.match: after
+  
+# ---------------------------- Elasticsearch Output ----------------------------
+output.elasticsearch:
+  hosts: ["localhost:9200"]
+  # 按天创建索引
+  index: "apm-%{+YYYY.MM.dd}"
+  enable: true
+setup.template.enabled: true
+# 使用该JSON文件来指定字段的模板，不然会使用es默认的模板
+setup.template.path: "/Users/likui/Workspace/github/treasure-map/apm.json"
+setup.template.name: "apm"
+setup.template.pattern: "apm-*"
+setup.template.overwrite: true
+setup.ilm.enabled: false
+~~~
+
+es+kibana通过docker-compose启动即可，配置如下：
+
+~~~yml
+version: '3.3'
+services:
+  elasticsearch:
+    image: elasticsearch:7.16.2
+    container_name: elasticsearch
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - "discovery.type=single-node"
+    volumes:
+      - /Users/likui/Workspace/docker/volume/elasticsearch/data #数据文件挂载
+      - /Users/likui/Workspace/docker/volume/elasticsearch/plugins #插件文件挂载
+  kibana:
+    image: kibana:7.16.2
+    container_name: kibana
+    environment:
+        - "ELASTICSEARCH_HOSTS=http://elasticsearch:9200/"
+    ports:
+      - "5601:5601"
+    links:
+     - elasticsearch
+~~~
+
+然后在kibana中创建索引即可展示日志信息（先通过接口采集一些信息）。有点美中不足的地方就是日志信息都以JSON串的形式放在message字段中了，而不是日志信息中每个字段都以es中的字段展示，这个也不知道怎么配置，暂时先这样。
 

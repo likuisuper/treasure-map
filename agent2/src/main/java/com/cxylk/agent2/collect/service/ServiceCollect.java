@@ -94,7 +94,8 @@ public class ServiceCollect implements Collect, ClassFileTransformer {
                     continue;
                 }
                 AgentByteBuilder.MethodSrcBuilder methodSrcBuilder=new AgentByteBuilder.MethodSrcBuilder();
-                methodSrcBuilder.setBeginSrc(beginSrc);
+                String bsrc = String.format(beginSrc, className, ctMethod.getName());
+                methodSrcBuilder.setBeginSrc(bsrc);
                 methodSrcBuilder.setEndSrc(endSrc);
                 methodSrcBuilder.setErrorSrc(errorSrc);
                 byteBuilder.updateMethod(ctMethod,methodSrcBuilder);

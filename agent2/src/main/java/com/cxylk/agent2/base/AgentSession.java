@@ -4,6 +4,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import org.junit.Assert;
@@ -19,6 +20,11 @@ public class AgentSession {
      * 当前线程会话
      */
     private static ThreadLocal<AgentSession> currentSession=new ThreadLocal<>();
+
+    /**
+     * 表示需要处理的收集器数量，当为0后所有数据都处理完毕，目的是为了关闭流
+     */
+    public final AtomicInteger collectCount=new AtomicInteger(3);
 
     private String SESSION_ID;
 
@@ -72,6 +78,7 @@ public class AgentSession {
     }
 
     public void push(Object node){
+        collectCount.decrementAndGet();
         Objects.requireNonNull(node);
         for (Processor processor : processorList) {
             //顺序执行处理器逻辑

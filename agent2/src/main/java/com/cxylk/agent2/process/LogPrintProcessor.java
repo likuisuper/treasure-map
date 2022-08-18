@@ -75,10 +75,7 @@ public class LogPrintProcessor implements Processor<String, Processor.STATUS> {
     public STATUS accept(AgentSession agentSession, String s) {
         //这里需要注意，这个类的构造函数我们是不会调用的
         //只会调用accept方法，那么fileWriter是怎么被赋值的呢？
-        //因为我们调用了logger的方法（带static修饰符的那个），而logger是静态字段，虽然加了final是个常量，但是它的引用不是一个常量
-        //所以会触发当前类的构造方法,可以通过jclasslib查看clinit的字节码：
-        //putstatic #32 <com/cxylk/agent2/process/LogPrintProcessor.logger : Lcom/cxylk/agent2/common/logger/Log;>
-        //可以发现其中有putstatic指令，正是它触发了类的实例化方法
+        //因为在AgentSession构造方法中会调用实例化方法
         try {
             //这里写入的两个日志文件是不一样的
             //logger写入的日志默认配置的是在target目录下的logs目录
@@ -91,11 +88,15 @@ public class LogPrintProcessor implements Processor<String, Processor.STATUS> {
         } catch (IOException e) {
             logger.error("日志写入失败",e);
         }finally {
-            try {
-                //一定要关闭，通知系统后面不能再写数据了，不然日志文件中会多打印日志
-                fileWriter.close();
-            } catch (IOException e) {
-                logger.error("文件关闭失败",e);
+            //当所有数据都收集完后（即http、service、sql）,再关闭
+            //不然每次收集完一次（比如http）就关闭，会造成流频繁关闭，导致后面无法写
+            if(agentSession.collectCount.get()==0) {
+                try {
+                    //一定要关闭，通知系统后面不能再写数据了，即当前一次会话结束，保证只会打印当次会话日志
+                    fileWriter.close();
+                } catch (IOException e) {
+                    logger.error("文件关闭失败", e);
+                }
             }
         }
         return STATUS.OVER;

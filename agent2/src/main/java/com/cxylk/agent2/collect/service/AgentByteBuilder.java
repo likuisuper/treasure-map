@@ -84,7 +84,7 @@ public class AgentByteBuilder {
                 String bsrc = beginSrc == null ? "" : beginSrc;
                 String eSrc = errorSrc == null ? "" : errorSrc;
                 String enSrc = endSrc == null ? "" : endSrc;
-                return String.format(template, bsrc, ctMethod.getName(), eSrc, endSrc);
+                return String.format(template, bsrc, ctMethod.getName(), eSrc, enSrc);
             } catch (NotFoundException e) {
                 throw new RuntimeException(e);
             }
@@ -95,7 +95,7 @@ public class AgentByteBuilder {
      * 无返回值的方法
      */
     final static String voidSource = "{\n"
-            + "%s"
+            + "%s\n"
             + "      try{\n"
             + "          %s$agent($$);\n"
             + "      }catch(Throwable e){\n"
@@ -110,7 +110,7 @@ public class AgentByteBuilder {
      * 有返回值的方法
      */
     final static String source = "{\n"
-            + "%s"
+            + "%s\n"
             + "        Object result=null;\n"
             + "       try {\n"
             + "            result=($w)%s$agent($$);\n"
