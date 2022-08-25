@@ -3,21 +3,22 @@ package com.cxylk.agent2.collect.service;
 import com.cxylk.agent2.base.Agent;
 import com.cxylk.agent2.base.AgentSession;
 import com.cxylk.agent2.base.Collect;
-import com.cxylk.agent2.common.logger.Log;
-import com.cxylk.agent2.common.logger.LogFactory;
 import com.cxylk.agent2.common.util.WildcardMatcher;
 import com.cxylk.agent2.model.ServiceInfo;
 import javassist.*;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
+import java.nio.file.Files;
 import java.security.ProtectionDomain;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
 
 /**
  * @author likui
@@ -26,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 比如可以指定采集哪些类，指定排除哪些类，这里引入WildcardMatcher来实现
  **/
 public class ServiceCollect implements Collect, ClassFileTransformer {
-    static final Log logger = LogFactory.getLog(ServiceCollect.class);
+    private final Logger logger = Logger.getLogger(ServiceCollect.class.getName());
 
     /**
      * 要包含哪些类
@@ -47,7 +48,7 @@ public class ServiceCollect implements Collect, ClassFileTransformer {
         if(!(include==null||"".equals(include))){
             includeMatcher=new WildcardMatcher(include);
         }else {
-            logger.warn("未配置 'service.include'参数，无法监控service服务方法");
+            logger.warning("未配置 'service.include'参数，无法监控service服务方法");
         }
         if(!(exclude==null||"".equals(exclude))){
             excludeMatcher=new WildcardMatcher(exclude);
@@ -76,7 +77,7 @@ public class ServiceCollect implements Collect, ClassFileTransformer {
             if(ctClass.isInterface()){
                 return null;
             }
-            logger.info("插桩："+className);
+            logger.info("插桩成功："+className);
             AgentByteBuilder byteBuilder=new AgentByteBuilder(ctClass);
             //获取所有方法
             CtMethod[] ctMethods = ctClass.getDeclaredMethods();
@@ -101,7 +102,9 @@ public class ServiceCollect implements Collect, ClassFileTransformer {
                 byteBuilder.updateMethod(ctMethod,methodSrcBuilder);
 
             }
-            return byteBuilder.toBytecode();
+            byte[] bytes = byteBuilder.toBytecode();
+            Files.write(new File("/Users/likui/Workspace/github/treasure-map/agent2/target/server$proxy.class").toPath(), bytes);
+            return bytes;
         } catch (Exception e) {
             e.printStackTrace();
         }

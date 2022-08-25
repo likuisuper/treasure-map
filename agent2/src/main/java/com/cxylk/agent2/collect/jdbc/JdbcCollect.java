@@ -1,6 +1,10 @@
 package com.cxylk.agent2.collect.jdbc;
 
 import com.cxylk.agent2.base.Collect;
+import com.cxylk.agent2.collect.HttpCollect;
+import com.cxylk.agent2.collect.dubbo.DubboInvokerCollect;
+import com.cxylk.agent2.common.logger.Log;
+import com.cxylk.agent2.common.logger.LogFactory;
 import javassist.*;
 
 import java.io.IOException;
@@ -8,6 +12,7 @@ import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
+import java.util.logging.Logger;
 
 /**
  * @author likui
@@ -16,6 +21,7 @@ import java.security.ProtectionDomain;
  * 不对场景做假设，所以在jdbc层进行插桩
  **/
 public class JdbcCollect implements ClassFileTransformer, Collect {
+    private Logger logger = Logger.getLogger(JdbcCollect.class.getName());
 
     @Override
     public void register(Instrumentation instrumentation) {
@@ -43,6 +49,7 @@ public class JdbcCollect implements ClassFileTransformer, Collect {
             return null;
         }
         try {
+            logger.info("插桩成功："+className);
             return buildClass(loader);
         }catch (Exception e){
             e.printStackTrace();

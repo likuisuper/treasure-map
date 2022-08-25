@@ -1,5 +1,6 @@
 package com.cxylk.agent2.collect.jdbc;
 
+import com.cxylk.agent2.base.Agent;
 import com.cxylk.agent2.base.AgentSession;
 import com.cxylk.agent2.model.SqlInfo;
 
@@ -27,10 +28,14 @@ public class JdbcCollects {
         } catch (SQLException throwables) {
             throwables.printStackTrace();
         }
+        sqlInfo.setSpanId(AgentSession.get().nextSpanId());
         return sqlInfo;
     }
 
     public static void end(SqlInfo info) {
+        if(AgentSession.get()==null){
+            return;
+        }
         info.setUseTime(LocalDateTime.now().toInstant(ZoneOffset.of("+8")).toEpochMilli() - info.getBeginTime().toInstant(ZoneOffset.of("+8")).toEpochMilli());
         //采集数据处理
         AgentSession agentSession = AgentSession.get();

@@ -13,10 +13,11 @@
     <packaging>pom</packaging>
     <version>1.0-SNAPSHOT</version>
     <modules>
-        <module>boot-example</module>
+        <module>boot-client</module>
         <module>javaagent</module>
         <module>agent1</module>
         <module>agent2</module>
+        <module>client-model</module>
     </modules>
     <dependencies>
         <dependency>

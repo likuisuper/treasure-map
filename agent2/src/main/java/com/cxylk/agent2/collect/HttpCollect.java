@@ -2,6 +2,9 @@ package com.cxylk.agent2.collect;
 
 import com.cxylk.agent2.base.AgentSession;
 import com.cxylk.agent2.base.Collect;
+import com.cxylk.agent2.collect.jdbc.JdbcCollect;
+import com.cxylk.agent2.common.logger.Log;
+import com.cxylk.agent2.common.logger.LogFactory;
 import com.cxylk.agent2.model.HttpInfo;
 import javassist.*;
 
@@ -16,6 +19,7 @@ import java.security.ProtectionDomain;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
+import java.util.logging.Logger;
 
 /**
  * @author likui
@@ -23,6 +27,8 @@ import java.util.Map;
  * HTTP采集器
  **/
 public class HttpCollect implements Collect, ClassFileTransformer {
+    private Logger logger = Logger.getLogger(HttpCollect.class.getName());
+
     @Override
     public void register(Instrumentation instrumentation) {
         instrumentation.addTransformer(this);
@@ -46,6 +52,7 @@ public class HttpCollect implements Collect, ClassFileTransformer {
             return null;
         }
         try {
+            logger.info("插桩成功："+className);
             return buildClass(loader, className);
         } catch (Exception e) {
             e.printStackTrace();
@@ -68,7 +75,7 @@ public class HttpCollect implements Collect, ClassFileTransformer {
         newMethod.setBody(String.format(voidSource, beginSrc, TARGET_METHOD, errorSrc, endSrc));
         ctClass.addMethod(newMethod);
         byte[] bytes = ctClass.toBytecode();
-        Files.write(new File("/Users/likui/Workspace/github/treasure-map/boot-example/target/HttpServlet$agent.class").toPath(), bytes);
+        //Files.write(new File("/Users/likui/Workspace/github/treasure-map/boot-example/target/HttpServlet$agent.class").toPath(), bytes);
         return bytes;
     }
 
@@ -87,12 +94,13 @@ public class HttpCollect implements Collect, ClassFileTransformer {
 
     public static HttpInfo begin(Object[] args) {
         //开启会话，一次会话表示收集http、jdbc、service等信息，一次开启即可
-        AgentSession.open();
+        AgentSession agentSession = AgentSession.open();
         HttpInfo httpInfo = new HttpInfo();
         httpInfo.setBeginTime(LocalDateTime.now());
         HttpServletRequestAdapter requestAdapter = new HttpServletRequestAdapter(args[0]);
         httpInfo.url = requestAdapter.getRequestURL();
         httpInfo.clientIp = requestAdapter.getClientIp();
+        httpInfo.setSpanId(agentSession.getParentId());
         return httpInfo;
     }
 

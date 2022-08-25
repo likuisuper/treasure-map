@@ -35,9 +35,9 @@ public class PreparedStatementHandler implements InvocationHandler {
             }
         }
         //拦截赋值的set方法
-        if(method.getName().startsWith("set")&&method.getParameterCount()==2){
-            sqlInfo.getParams().add(new SqlInfo.ParamValues((Integer) args[0],args[1]));
-        }
+//        if(method.getName().startsWith("set")&&method.getParameterCount()==2){
+//            sqlInfo.getParams().add(new SqlInfo.ParamValues((Integer) args[0],args[1]));
+//        }
         Object result=null;
         try {
             result = method.invoke(preparedStatement, args);

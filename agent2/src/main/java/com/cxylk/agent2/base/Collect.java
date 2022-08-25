@@ -13,4 +13,36 @@ public interface Collect {
      * @param instrumentation
      */
     void register(Instrumentation instrumentation);
+
+    /**
+     * 无返回参数方法模板
+     */
+    String VOID_SOURCE_TEMPLATE = "{\n"
+            + "%s"
+            + "        try {\n"
+            + "            %s$agent($$);\n"
+            + "        } catch (Throwable e) {\n"
+            + "%s"
+            + "            throw e;\n"
+            + "        }finally{\n"
+            + "%s"
+            + "        }\n"
+            + "}\n";
+
+    /**
+     * 有返回参数方法模板
+     */
+    String SOURCE_TEMPLATE = "{\n"
+            + "%s"
+            + "        Object result=null;\n"
+            + "       try {\n"
+            + "            result=($w)%s$agent($$);\n"
+            + "        } catch (Throwable e) {\n"
+            + "%s"
+            + "            throw e;\n"
+            + "        }finally{\n"
+            + "%s"
+            + "        }\n"
+            + "        return ($r) result;\n"
+            + "}\n";
 }

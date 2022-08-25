@@ -13,6 +13,11 @@ public class BaseDataNode {
     private String traceId;
 
     /**
+     * 事件ID
+     */
+    private String spanId;
+
+    /**
      * 开始时间
      */
     private LocalDateTime beginTime;
@@ -43,6 +48,14 @@ public class BaseDataNode {
 
     public void setTraceId(String traceId) {
         this.traceId = traceId;
+    }
+
+    public String getSpanId() {
+        return spanId;
+    }
+
+    public void setSpanId(String spanId) {
+        this.spanId = spanId;
     }
 
     public LocalDateTime getBeginTime() {
@@ -89,6 +102,7 @@ public class BaseDataNode {
     public String toString() {
         return "BaseDataNode{" +
                 "traceId='" + traceId + '\'' +
+                ", spanId='" + spanId + '\'' +
                 ", beginTime=" + beginTime +
                 ", useTime=" + useTime +
                 ", appName='" + appName + '\'' +
