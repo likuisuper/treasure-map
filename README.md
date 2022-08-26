@@ -1,4 +1,4 @@
-# treasure-map
+treasure-map
 
 ## 1、javaagent插桩机制
 
@@ -1042,6 +1042,190 @@ services:
 
 ### 分布式调用链底层逻辑
 
-我们先看一张分布式系统的调用链路：
+关于分布式链路：
 
 ![](https://s1.ax1x.com/2022/08/24/vgeDzj.png)
+
+#### 调用链基本元素
+
+1、事件：请求处理过程当中的具体动作
+
+2、节点：请求所经过的系统节点，即事件的空间属性
+
+3、时间：事件的开始和结束时间
+
+4、关系：事件与上一个事件关系
+
+调用链系统本质上就是用来回答这几个问题：
+
+1、什么时间
+
+2、在什么节点上
+
+3、发生了什么事情
+
+4、这个事情由谁发起
+
+#### 事件捕捉
+
+1、硬编码埋点捕捉
+
+2、AOP埋点捕捉
+
+3、公开组件埋点捕捉
+
+4、字节码插桩捕捉
+
+#### 事件串联
+
+目的：
+
+1、所有事件都关联到同一个调用
+
+2、各个事件之间的层级关系
+
+为了达到这两个目的，几乎所有的调用链系统都会有以下两个属性：
+
+traceId：在整个系统中唯一，该值相同的事件表示同一次调用
+
+spanId：在一次事件中唯一、并展示出事件的层级关系
+
+问题：
+
+1、怎么生成traceId
+
+2、怎么传递参数
+
+3、怎么在并发情况下不影响传递的结果
+
+#### 串联的过程
+
+1、由跟踪的起点生成一个traceId，一直传递至所有节点，并保存在事件属性值当中。
+
+2、由跟踪的起点生成初始spanId，没捕捉一个事件ID加1，没传递一次，层级加1
+
+#### spanId自增生成方式
+
+如何在多线程环境下保证自增的正确性？
+
+解决方法是每个跟踪请求创建一个互相独立的会话，spanId的自增都基于该会话实现。会话对象的存储基于threadLocal实现。
+
+#### span基本内容
+
+在调用链中一个span即代表一个时间跨度下的行为动作，它可以是在一个系统内的时间跨度，也可能是跨多个服务系统的。通常情况下一个span组成包括
+
+1、名称：即操作的名称
+
+2、spanId：当前调用中唯一ID
+
+3、parentId：表示其父span
+
+4、开始与结束时间
+
+#### 端到端span
+
+一次远程调用需要记录几个Span呢？我们需要在客户端和服务端分别记录Span信息，这样才能 计在两个端的视角分别记录信息。比如计算中间的网络IO。
+
+在Dapper 中分布式请求起码包含如下四个核心埋点阶段： 
+
+1. 客户端发送 cs（Client Send）：客户端发起请求时埋点，记录客户端发起请求的时间戳 
+2. 服务端接收 sr（Server Receive）：服务端接受请求时埋点，记录服务端接收到请求的时间 戳 
+3. 服务端响应 ss（Server Send）：服务端返回请求时埋点，记录服务端响应请求的时间戳 
+4. 客户端接收 cr（Client Receive）：客户端接受返回结果时埋点，记录客户端接收到响应时 的时间戳 
+
+通过这四个埋点信息，我们可以得到如下信息： 客户端请求服务端的网络耗时：sr-cs 服务端处理请求的耗时：ss-sr 服务端发送响应给客户端的网络耗时：cr-ss 本次请求在这两个服务之间的总耗时：cr-cs。、
+
+以上这些埋点在 Dapper 中有个专业的术语，叫做 Annotation。
+
+我们可以通过下面这张图比较清楚的展示了整个过程：
+
+![](https://s1.ax1x.com/2022/08/25/v2Slp6.png)
+
+### Dubbo调用链追踪实现
+
+这里我们选择RPC中的dubbo进行具体的实现。
+
+#### 链路会话传递
+
+我们先来看下整个链路会话的一个传递：
+
+![](https://s1.ax1x.com/2022/08/25/v2SB1f.png)
+
+关于入口节点：
+
+1、入口通常也是出口，其职责是在请求进入时开启当前请求的会话，出去时关闭当前请求的监听会话
+
+2、解析请求中附带的trace包，并在它基础上开启监听会话
+
+3、开启的会话，必须确保其能按时关闭
+
+关于出口节点：
+
+1、指当前应用调用外部系统，需要在不影响业务的情况下将当前链路会话传递到下游节点
+
+#### 会话设计
+
+![](https://s1.ax1x.com/2022/08/25/v2pev8.png)
+
+#### 具体实现
+
+首先是插桩点。因为Dubbo有调用过程和响应过程，所以应该有两个插桩点。
+
+这里需要注意的是，为了解决classLoader的问题，依然采用适配器的方式。代码见agent2项目下dubbo目录。
+
+##### dubbo调用过程
+
+![](https://s1.ax1x.com/2022/08/25/v2p15n.png)
+
+可以看到，经过责任链的处理，最终会通过`DubboInvoker`发起调用，所以我们插桩点就是它。
+
+**过程：**
+
+1、拦截`DubboInvoker`的`doInvoker`方法
+
+2、隐式传参traceId以及当前spanId到下游节点（也就是服务端）
+
+3、采集当前RPC调用信息（接口、服务端URL、方法、时间等，通过`Invocation`和`Invoker`）并保存至AgentSession
+
+这里提一下dubbo的隐私传参：当我们有**将额外的参数传递给下游服务**的需求时，我们不可能修改方法的参数签名，这与业务耦合了，此时就需要用到dubbo的隐私参数`attachment`了，可以把它理解为dubbo协议中的一个扩展点。类似于http协议，我们可以自定义请求头信息。而在dubbo中，我们也可以自定义RPC请求中的参数。
+
+##### dubbo响应过程
+
+![](https://s1.ax1x.com/2022/08/25/v29lLD.png)
+
+插桩点为`GenericFilter`。
+
+**过程：**
+
+1、拦截`invoke`方法
+
+2、解析上游传递的隐私参数traceId以及parentId，请基于它重新开启一个会话（因为这属于另外一个节点了）
+
+3、采集当前调用信息（通过`Invoker`和`Invocation`）
+
+4、请求结束后关闭会话
+
+我们可以看一下采集到的日志：
+
+~~~json
+# 客户端dubbo信息
+{"remoteUrl":"dubbo://10.10.10.237:20880/com.cxylk.service.DubboUserService?anyhost=true&application=dubbo-client&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&init=false&interface=com.cxylk.service.DubboUserService&metadata-type=remote&methods=getUserByName&pid=63647&qos.enable=false&register.ip=10.10.10.237&release=2.7.8&remote.application=dubbo-server&side=consumer&sticky=false&timeout=3000&timestamp=1661325410828","serviceInterface":"com.cxylk.service.DubboUserService","serviceMethodName":"getUserByName","seat":"client","traceId":"382276bca75f4a4ca4632eee595c5067","spanId":"0.1","beginTime":{"date":{"year":2022,"month":8,"day":24},"time":{"hour":15,"minute":18,"second":11,"nano":773000000}},"useTime":22,"appName":"未定义","host":"10.37.129.2","modeType":"DubboInfo"}
+
+# 服务端jdbc信息
+{"jdbcUrl":"jdbc:mysql://172.16.211.139:4000/nuza_system?autoReconnect=true&useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true","sql":"select * from merchant_user where user_name=?","databaseName":"nuza_system","params":[],"traceId":"382276bca75f4a4ca4632eee595c5067","spanId":"0.1.1","beginTime":{"date":{"year":2022,"month":8,"day":24},"time":{"hour":15,"minute":18,"second":12,"nano":383000000}},"useTime":60,"appName":"未定义","host":"10.37.129.2","modeType":"SqlInfo"}
+
+# 服务端dubbo信息
+{"serviceInterface":"com.cxylk.service.DubboUserService","serviceMethodName":"getUserByName","seat":"server","traceId":"382276bca75f4a4ca4632eee595c5067","spanId":"0.1","beginTime":{"date":{"year":2022,"month":8,"day":24},"time":{"hour":15,"minute":18,"second":12,"nano":1000000}},"useTime":481,"appName":"未定义","host":"10.37.129.2","modeType":"DubboInfo"}
+
+# 客户端http信息
+{"url":"http://127.0.0.1:8080/user/find2","clientIp":"127.0.0.1","traceId":"382276bca75f4a4ca4632eee595c5067","spanId":"0","beginTime":{"date":{"year":2022,"month":8,"day":24},"time":{"hour":15,"minute":18,"second":11,"nano":723000000}},"useTime":877,"appName":"未定义","host":"10.37.129.2","modeType":"HttpInfo"}
+
+~~~
+
+可以看到，traceId是全局唯一的，它代表了当前的一次调用。
+
+客户端http信息中，spanId是0，因为我们的入口就是http调用（这里开启了会话，parentId就是spanId），然后在客户端中通过dubbo发起了远程调用，这里客户端产生了一次dubbo事件，所以spanId加1，变成了0.1，然后通过隐私传参将客户端的spanId作为parentId传递给了服务端，所以服务端的dubbo信息中的spanId也是0.1，为什么他们的spanId相同呢？因为这是一次调用中产生的dubbo事件，不管是客户端发起的dubbo调用还是服务端的dubbo响应，他们都是dubbo事件。**并且dubbo事件作为服务端的起始事件，需要重新开启会话，设置traceId和parentId，parentId就是dubbo事件的spanId**。
+
+最后在服务端访问了数据库，产生了sql事件，它的parentId就是dubbo信息的spanId，所以它的spanId是0.1.1。
+
+所以我们可以得出结论：**谁是当前节点最开始产生的事件，那么它的spanId就会作为当前节点的parentId，后续该节点产生的事件的parentId都是它**。
