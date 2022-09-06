@@ -18,6 +18,7 @@
         <module>agent1</module>
         <module>agent2</module>
         <module>client-model</module>
+        <module>asm-coverage</module>
     </modules>
     <dependencies>
         <dependency>
