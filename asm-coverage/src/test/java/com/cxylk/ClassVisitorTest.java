@@ -21,7 +21,7 @@ public class ClassVisitorTest implements Opcodes {
     @Test
     public void printTest() throws IOException {
         //指定要读取的类
-        ClassReader reader=new ClassReader("com.cxylk.Hello");
+        ClassReader reader=new ClassReader("com.cxylk.coverage.Hello");
         ClassVisitor visitor=new ClassVisitor(ASM5) {
             @Override
             public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
@@ -107,7 +107,7 @@ public class ClassVisitorTest implements Opcodes {
     @Test
     public void writeTest1() throws IOException {
         //指定要读取的类
-        ClassReader reader=new ClassReader("com.cxylk.Hello");
+        ClassReader reader=new ClassReader("com.cxylk.coverage.Hello");
         //ClassWrite也是一个访问者，它是责任链中的最后一个，用于复制读取到的类
         //flags传的参数表示自动计算最大堆栈大小和最大局部变量大小，栈帧映射
         ClassWriter writerVisitor=new ClassWriter(reader,ClassWriter.COMPUTE_FRAMES|ClassWriter.COMPUTE_MAXS);
@@ -125,7 +125,7 @@ public class ClassVisitorTest implements Opcodes {
     @Test
     public void writeTest2() throws IOException {
         //指定要读取的类
-        ClassReader reader=new ClassReader("com.cxylk.Hello");
+        ClassReader reader=new ClassReader("com.cxylk.coverage.Hello");
         //ClassWrite也是一个访问者，它是责任链中的最后一个，用于复制读取到的类
         //flags传的参数表示自动计算最大堆栈大小和最大局部变量大小，栈帧映射
         ClassWriter writerVisitor=new ClassWriter(reader,ClassWriter.COMPUTE_FRAMES|ClassWriter.COMPUTE_MAXS);
@@ -234,7 +234,7 @@ public class ClassVisitorTest implements Opcodes {
      */
     @Test
     public void traceTest() throws IOException {
-        ClassReader reader=new ClassReader("com.cxylk.Hello");
+        ClassReader reader=new ClassReader("com.cxylk.coverage.Hello");
         ASMifier asMifier=new ASMifier();
         //打印到控制台
         //TraceClassVisitor traceClassVisitor=new TraceClassVisitor(new PrintWriter(System.out));

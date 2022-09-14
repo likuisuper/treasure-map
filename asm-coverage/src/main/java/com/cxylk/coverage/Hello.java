@@ -1,4 +1,4 @@
-package com.cxylk;
+package com.cxylk.coverage;
 
 import java.util.Objects;
 

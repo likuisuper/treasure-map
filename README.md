@@ -1232,5 +1232,529 @@ spanId：在一次事件中唯一、并展示出事件的层级关系
 
 ## 9、动态代码覆盖率追踪
 
+### 代码覆盖率
 
+所谓的代码覆盖率，指的就是**追踪测试⽤例对应执⾏过的代码，覆盖越全，表示测试越精准**。常用的覆盖率工具有jacoco,idea。我们以jacoco为例，来了解代码覆盖的实现原理：
+
+jacoco也是通过agent探针的方式，将agent插入到目标应用：
+
+![](https://s1.ax1x.com/2022/09/09/vqX8JK.png)
+
+然后对代码进行修改，我们看下修改前和修改后的逻辑：
+
+![](https://s1.ax1x.com/2022/09/09/vqXqOJ.png)
+
+没错，jacoco的原理就是在每条指令码前将数组位设置为true。具体实现在`ProbeInserter`这个类。
+
+### 动态代码覆盖
+
+我们发现，上面这种方式只能是一个静态追踪的，如果想要覆盖指定时间段内，指定线程所执行过的方法（栈帧），那么我们就得进行改造。而方法的内存模型又与线程栈有关。
+
+#### JVM线程栈模型
+
+我们知道，在Java中，没一个线程都有自己的虚拟机方法栈，用于描述方法执行的内存模型，每一个方法从调用到执行完成的过程，就对应者一个栈帧（方法执行时创建）在虚拟机栈中入栈到出栈的过程：
+
+![](https://s1.ax1x.com/2022/09/09/vqjUpT.png)
+
+而栈帧里面还有局部变量表和操作数栈等。
+
+我们要做的就是将上面的模型抽象成数据结构，学过数据结构的话我们都知道，栈有两种实现方式，一种是数组，一种是链表，这里我们采用类似链表的实现方式。
+
+#### 采集模型
+
+##### stackNode
+
+stackNode表示一个方法的执行栈帧，它有如下属性：
+
+~~~Java
+    /**
+     * 节点id,最后一个小数点前面的表示父节点id,小数点后面的表示子节点数量
+     */
+		private String id;
+
+    /**
+     * 类ID，ASM会自动生成
+     */
+    private Long classId;
+
+    /**
+     * 类名
+     */
+    private String className;
+
+    /**
+     * 方法名
+     */
+    private String methodName;
+
+    /**
+     * 行号
+     */
+    private final List<Integer> lines=new ArrayList<>();
+
+    /**
+     * 栈帧数量
+     * 如果一个方法没有被多次调用，size始终为1
+     * 否则它等于一个方法被重复调用了多次
+     */
+    protected int size;
+
+    /**
+     * 方法是否调用完成
+     */
+    private boolean done;
+
+    /**
+     * 耗时，因为执行速度很快，所以这里用纳秒表示
+     */
+    private Long useTime=0L;
+
+    //以下字段在序列化时忽略
+
+    /**
+     * 开始时间
+     */
+    private transient  Long beginTime;
+
+    /**
+     * 指向调用方
+     */
+    private transient StackNode parent;
+
+    /**
+     * 指向被调用方，并且调用方可能有多个
+     */
+    private transient final List<StackNode> childs=new ArrayList<>(20);
+
+    /**
+     * 当前node所属会话
+     */
+    private transient StackSession stackSession;
+~~~
+
+##### stackSession
+
+stackSession代表采集整个会话，构建该对象即表示会话开启。期间执行任一方法都要调用$begin和$end方法，并创建stackNode记录方法的执行数据，**会话期间始终有一个hotNode用于连接StackNode的父子关系**。它有如下属性和主要方法：
+
+~~~Java
+public class StackSession {
+    static final ThreadLocal<StackSession> sessions =new ThreadLocal<>();
+
+    /**
+     * 当前整个会话的根节点
+     */
+    private StackNode rootNode;
+
+    /**
+     * 最重要的一个属性，它指向的是栈帧中的栈顶元素，
+     * 会话期间用于连接StackNode的父子关系
+     */
+    private StackNode hotNode;
+
+    /**
+     * 调用的次数
+     */
+    private int invokeCount=0;
+
+    /**
+     * 一个session期间执行的栈帧数量
+     * 用来限制方法调用深度
+     */
+    private int nodeSize=0;
+
+    private int errorSize=0;
+
+    /**
+     * 虚拟机方法栈最大的容量
+     */
+    static final int MAX_SIZE = 5000;
+
+    /**
+     * 构造该对象即表示开启会话
+     * 一个线程只能开启一次
+     */
+    public StackSession(String originClass,String originMethod) {
+        if(sessions.get()!=null){
+            throw new RuntimeException("open code stack session fail,because current session already exists!");
+        }
+        //开启会话即构建一个根节点
+        StackNode rootNode=new StackNode(-1L,originClass,originMethod);
+        //根节点从0开始
+        rootNode.setId("0");
+        //调用次数+1
+        invokeCount++;
+        //hotNode可以理解为头指针，指向头节点
+        hotNode=rootNode;
+        this.rootNode=rootNode;
+        rootNode.setBeginTime(System.nanoTime());
+        sessions.set(this);
+    }
+
+    /**
+     * 每个方法入口处都要调用
+     * @param classId
+     * @param className
+     * @param methodName
+     * @return 返回一个Object或StackNode
+     */
+    public static Object $begin(long classId,String className,String methodName){
+        StackSession session = sessions.get();
+        if(session==null){
+            //注意这里不能返回null，因为begin方法的返回结果要作为end方法的入参
+            return new Object();
+        }
+        StackNode node = session.addNode(new StackNode(classId, className, methodName));
+        return node==null?new Object():node;
+    }
+
+    /**
+     * 在每一个return指令之前都要调用，因为会存在分支流程语句
+     * @param node
+     */
+    public static void $end(Object node){
+        StackSession session = sessions.get();
+        if(session!=null&&node instanceof StackNode){
+            //结束调用返回上一级
+            session.doneNode((StackNode) node);
+        }
+    }
+
+    /**
+     * 关闭会话，谁开启的会话会关闭
+     */
+    public void close(){
+        if(sessions.get()==this){
+            sessions.remove();
+        }else {
+            throw new RuntimeException("code stack session close fail,because this not current session");
+        }
+    }
+
+    /**
+     * 添加节点（栈帧）
+     * @param node
+     * @return
+     */
+    public StackNode addNode(StackNode node){
+        //调用次数+1
+        invokeCount++;
+        //限制方法栈的大小
+        if(nodeSize>=MAX_SIZE){
+            return null;
+        }
+        //还需要考虑调用重复方法的情况
+        boolean exist=false;
+        for (StackNode child : hotNode.getChilds()) {
+            //类名和方法名相同即为同一个方法
+            if(node.getClassName().equals(child.getClassName())&&node.getMethodName().equals(child.getMethodName())){
+                node=child;
+                exist=true;
+                break;
+            }
+        }
+        //没有调用相同方法的情况
+        if(!exist){
+            nodeSize++;
+            //将当前节点加入hotNode子节点
+            hotNode.getChilds().add(node);
+            //设置节点id,因为进入这里表示方法没有重复，所以节点id是唯一的
+            node.setId(hotNode.getId()+"."+hotNode.getChilds().size());
+            node.size=1;
+            node.setStackSession(this);
+        }else {
+            //出现调用相同方法的情况，只需要将node.size+1，表示重复方法的调用次数
+            node.size++;
+        }
+        //当前节点的父节点设置为hotNode
+        node.setParent(hotNode);
+        //hotNode指向node，也就是指向栈顶
+        hotNode=node;
+        node.setBeginTime(System.nanoTime());
+        return node;
+    }
+
+    /**
+     * 表示一个栈帧执行完成
+     * @param node
+     */
+    public void doneNode(StackNode node){
+        //1、设置节点状态
+        node.setDone(true);
+        //2、hotNode回退到父节点
+        hotNode=node.getParent();
+        //3、统计栈帧执行用时
+        //因为一个方法存在重复调用情况，所以这里还要加上上一个重复方法的用时
+        node.setUseTime(node.getUseTime()+(System.nanoTime()-node.getBeginTime()));
+    }
+~~~
+
+我们用下面代码来模拟以下这个过程：
+
+~~~Java
+    public void A(String name){
+        B();
+        if(name.equals("lk")){
+            //end
+            return;
+        }
+        C();
+        //end
+    }
+    public void B(){
+        C();
+    }
+    public void C(){
+
+        System.out.println("hello");
+    }
+
+    @org.junit.Test
+    public void codeCoverageTest() throws InterruptedException {
+        StackSession session=new StackSession("com.cxylk.Test","codeCoverageTest");
+        new Test().A("dsd");
+        session.close();
+        session.printStack(System.out);
+        Thread.sleep(Integer.MAX_VALUE);
+    }
+~~~
+
+#### 执行流程
+
+这个流程用文字不好描述，我们通过下面这张图来说明（构造函数省略）：
+
+![](https://s1.ax1x.com/2022/09/09/vLVpyn.png)
+
+**rootNode始终指向根节点，而hotNode始终指向栈顶节点，hotNode是会变化的，这样正确理解这点，才能正确设置node.id的值**，上面的数字就是当前节点的id，id最后的一个数字就表示子节点的数量。当C()方法执行完后，hotNode回退到B()方法这个节点，然后B()方法执行完，hotNode回退到A()方法，此时hotNode有两个子节点B()和B()方法中的C()节点，而A()方法中还有一个C()方法，所以执行C()方法，此时将C()节点加入A()的子节点，所以C()的节点id为0.1.3。
+
+#### 异常情况
+
+最麻烦的事情就是方法执行中出现了异常，**这样的话end方法就执行不了，也就是说hotNode不会回退**。以上面这个流程为例，当我们在执行A()方法中的B()方法中的C()方法时，出现了异常，因为没有捕获，那么这个异常就会一直抛出到A()方法，如果A()进行了捕获处理了这个异常，我们接着执行A()中的C方法，但是**此时的hotNode指向的还是B()中的C()方法，导致的结果就是C()节点的父子关系错乱**。
+
+如何解决？
+
+我们的第一个反应就是将hotNode回退到A，这样C的父子关系就不会错乱，**但是hotNode不可能直接就回到A，它要先回到B，再回到A。而我们不知道哪行代码会出异常，也就是说，每执行一行代码，我们都要将hotNode设置为当前节点**。
+
+所以说，没执行一行代码执行，我们都要插入这样的代码，怎么插入比较好呢？这里有个技巧，就是在hotNode中重写`equals`方法，这样不仅能拿到当前代码执行的行号，还能将hotNode设置为当前节点：
+
+~~~Java
+   /**
+     * 1、记录行号
+     * 2、将hotNode置为当前节点
+     * @param obj
+     * @return
+     */
+    @Override
+    public boolean equals(Object obj){
+        // 添加执行行号
+        if (obj instanceof Integer) {
+            if (!lines.contains(obj)) {
+                lines.add((Integer) obj);
+            }
+            //重置hotNode节点为当前节点
+            //为什么需要这么做？如果当一个方法还没执行end就出现了异常并且没有被捕获，它会一直向上抛出到根节点，
+            //那么hotNode就不会回退，当再次调用下个方法时，父子关系就会错乱
+            stackSession.setHotStack(this);
+            return false;
+        }
+        return super.equals(obj);
+    }
+~~~
+
+#### 编码实现
+
+##### 插桩点
+
+所以总结下来，我们的插桩点就应该有三个
+
+**进入节点**：
+
+1、创建StackNode，父节点指向hotNode
+
+2、新建的node添加至hotNode的子节点集合
+
+3、修改hotNode为新建的节点
+
+**退出节点**：
+
+1、将节点设置为完成状态
+
+2、计算节点耗时
+
+3、回退hotNode，将hotNode设置为当前节点的parent
+
+*如果方法异常退出，无法回退，就得通过调用前来回退*
+
+**调用前**：
+
+1、记录行号
+
+2、将hotNode置为当前节点
+
+##### 实现
+
+知道插桩点后，实现就简单了，我们只要在`jacoco`中的`ProbeInserter`类上修改即可。
+
+1、方法入口处插入`$begin`方法：
+
+~~~Java
+    @Override
+    public void visitCode() {
+        // 在方法开始处添加begin方法
+        // 将classId从常量池推送至栈顶
+        mv.visitLdcInsn(classInfo.getClassId());
+        // 将className从常量池推送至栈顶
+        mv.visitLdcInsn(classInfo.getClassName());
+        // 将methodName从常量池推送至栈顶
+        mv.visitLdcInsn(methodName);
+        // 调用begin方法
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, sessionClassName, "$begin",
+                "(JLjava/lang/String;Ljava/lang/String;)Ljava/lang/Object;", false);
+        mv.visitVarInsn(Opcodes.ASTORE, variable);
+        super.visitCode();
+    }
+~~~
+
+2、执行每行指令前都插入`equals`方法：
+
+~~~Java
+    @Override
+    public void insertProbe(final int id) {
+        mv.visitVarInsn(Opcodes.ALOAD, variable);
+        InstrSupport.push(mv, currentLine);
+        //先将int转换为Integer，否则会报 Type integer (current frame, stack[1]) is not assignable to 'java/lang/Object'
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;", false);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/Object", "equals", "(Ljava/lang/Object;)Z", false);
+        mv.visitInsn(Opcodes.POP);
+
+    }
+~~~
+
+这个`insertProbe`对应的就是`MethodVisitor`中的`visitLabel`方法，jacoco中添加了一个`MethodProbesAdapter`适配器继承了`MethodVisitor`，然后重写了`visitorLabel`方法。
+
+另外，当前代码执行的行号是通过下面这个方法得到的：
+
+~~~Java
+    @Override
+    public void visitLineNumber(final int line, final Label start) {
+        this.currentLine = line;
+        super.visitLineNumber(line, start);
+    }
+~~~
+
+
+
+3、插入`$end`方法，不能在`visitorEnd`里面插入，而应该在每个`return`指令之前插入：
+
+~~~Java
+    @Override
+    public void visitInsn(final int opcode) {
+        // ATHROW 属异常退出方法
+        //return指令之前
+        if ((opcode >= Opcodes.IRETURN && opcode <= Opcodes.RETURN)/* || opcode == Opcodes.ATHROW*/) {
+            //将begin方法返回的结果从局部变量表推送至栈顶
+            mv.visitVarInsn(Opcodes.ALOAD, variable);
+            //调用StackSession的end方法
+            mv.visitMethodInsn(Opcodes.INVOKESTATIC, sessionClassName, "$end", "(Ljava/lang/Object;)V", false);
+        }
+        super.visitInsn(opcode);
+    }
+~~~
+
+##### 问题
+
+1、当前局部变量表的位置如何计算呢？我们来看构造方法：
+
+~~~java 
+    ProbeInserter(final int access, final String name, final String desc, final MethodVisitor mv, final ClassInfo classInfo) {
+        super(InstrSupport.ASM_API_VERSION, mv);
+        this.clinit = InstrSupport.CLINIT_NAME.equals(name);
+        this.methodName = name+" "+desc;
+        this.classInfo = classInfo;
+        //如果是静态方法，那么局部变量表的槽位从0开始，否则从1开始（0存放this）
+        int pos = (Opcodes.ACC_STATIC & access) == 0 ? 1 : 0;
+        //计算占用局部变量表的大小
+        for (final Type t : Type.getArgumentTypes(desc)) {
+            pos += t.getSize();
+        }
+        variable = pos;
+    }
+~~~
+
+可以看到，根据当前方法是静态方法还是实例方法以及参数类型计算出应该从局部变量表的哪个槽位开始操作。
+
+2、当在一个变量后新插入一个变量，那么这个新插入的变量应该从局部变量表的哪个位置访问呢？
+
+我们来看一个例子：
+
+~~~Java
+public void test(String name,int a){
+  int b;
+  //插入c
+  int c;
+  System.out.println(c);
+}
+~~~
+
+没插入c之前，b应该保存在局部变量表的3号槽位，那我们插入c后，c就存储在了4号槽位，所以我们访问c的时候应该是3+1，而我们如果要访问name这个变量的话，它的槽位还是1，是不会变化的，所以在`ProbeInserter`中有这么一个方法：
+
+~~~Java
+    private int map(final int var) {
+        //之前的变量位置不变
+        if (var < variable) {
+            return var;
+        } else {
+            //新插入的变量位置+1
+            return var + 1;
+        }
+    }
+~~~
+
+##### 效果
+
+接下来我们就看看插桩后的代码长什么样子，代码入口处在`CodeStackCollect`，其中调用到插桩的是如下几行代码：
+
+~~~java
+        ClassReader reader = new ClassReader("com.cxylk.coverage.Hello");
+
+        final ClassWriter writer = new ClassWriter(reader, 0);
+        ClassInfo info = new ClassInfo(reader);
+        final ClassVisitor visitor = new ClassProbesAdapter(new ClassInstrumenter(info, writer),
+                true);
+        reader.accept(visitor, ClassReader.EXPAND_FRAMES);
+~~~
+
+执行链路是这样的：
+
+Reader-->Visitor-->Adapter-->Instrumenter-->writer。
+
+所以真正的实现在`ClassInstrumenter`中，在它重写的`visitorMethod`中
+
+~~~Java
+    @Override
+    public MethodProbesVisitor visitMethod(final int access, final String name, final String desc, final String signature,
+                                           final String[] exceptions) {
+
+        InstrSupport.assertNotInstrumented(name, className);
+
+        final MethodVisitor mv = cv.visitMethod(access, name, desc, signature, exceptions);
+
+        if (mv == null) {
+            return null;
+        }
+        final MethodVisitor frameEliminator = new DuplicateFrameEliminator(mv);
+        final ProbeInserter probeVariableInserter = new ProbeInserter(access, name, desc, frameEliminator, probeArrayStrategy);
+        return new MethodInstrumenter(probeVariableInserter, probeVariableInserter);
+    }
+~~~
+
+会调用`ProbeInserter`构造方法得到一个`ProbeInserter`，然后调用`MethodInstrumenter`构造方法，最后当执行`MethodVisitor`中的方法时，会交给`ProbeInserter`执行，完成插桩逻辑。
+
+~~~Java
+	public MethodInstrumenter(final MethodVisitor mv,
+			final IProbeInserter probeInserter) {
+    //指定下一个执行者为ProbeInserter
+		super(mv);
+		this.probeInserter = probeInserter;
+	}
+~~~
 

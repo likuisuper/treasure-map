@@ -17,7 +17,7 @@ import java.nio.file.Files;
 public class MethodVisitorTest implements Opcodes {
     @Test
     public void newTest() throws IOException {
-        ClassReader reader = new ClassReader("com.cxylk.Hello");
+        ClassReader reader = new ClassReader("com.cxylk.coverage.Hello");
         ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES + ClassWriter.COMPUTE_MAXS);
         //添加语法校验适配器
         CheckClassAdapter checkClassAdapter = new CheckClassAdapter(writer);
