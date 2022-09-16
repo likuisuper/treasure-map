@@ -73,31 +73,39 @@ public class LogPrintProcessor implements Processor<String, Processor.STATUS> {
 
     @Override
     public STATUS accept(AgentSession agentSession, String s) {
-        //这里需要注意，这个类的构造函数我们是不会调用的
-        //只会调用accept方法，那么fileWriter是怎么被赋值的呢？
-        //因为在AgentSession构造方法中会调用实例化方法
+//        //这里需要注意，这个类的构造函数我们是不会调用的
+//        //只会调用accept方法，那么fileWriter是怎么被赋值的呢？
+//        //因为在AgentSession构造方法中会调用实例化方法
+//        try {
+//            //这里写入的两个日志文件是不一样的
+//            //logger写入的日志默认配置的是在target目录下的logs目录
+//            //而fileWriter写入的日志是我们在VM参数中指定的或者默认的项目根目录
+//            //这个日志主要是当前项目做成APM后通过kibana来展示的
+//            logger.info("写入日志-----:"+s);
+//            fileWriter.write( s +"\r\n");
+//            //刷新缓冲区，此时数据还没有写入文件，只写到缓冲区，后面还可以继续写
+//            fileWriter.flush();
+//        } catch (IOException e) {
+//            logger.error("日志写入失败",e);
+//        }finally {
+//            //当所有数据都收集完后（即http、service、sql）,再关闭
+//            //不然每次收集完一次（比如http）就关闭，会造成流频繁关闭，导致后面无法写
+//            if(agentSession.collectCount.get()==0) {
+//                try {
+//                    //一定要关闭，通知系统后面不能再写数据了，即当前一次会话结束，保证只会打印当次会话日志
+//                    fileWriter.close();
+//                } catch (IOException e) {
+//                    logger.error("文件关闭失败", e);
+//                }
+//            }
+//        }
+
         try {
-            //这里写入的两个日志文件是不一样的
-            //logger写入的日志默认配置的是在target目录下的logs目录
-            //而fileWriter写入的日志是我们在VM参数中指定的或者默认的项目根目录
-            //这个日志主要是当前项目做成APM后通过kibana来展示的
             logger.info("写入日志-----:"+s);
             fileWriter.write( s +"\r\n");
-            //刷新缓冲区，此时数据还没有写入文件，只写到缓冲区，后面还可以继续写
             fileWriter.flush();
         } catch (IOException e) {
             logger.error("日志写入失败",e);
-        }finally {
-            //当所有数据都收集完后（即http、service、sql）,再关闭
-            //不然每次收集完一次（比如http）就关闭，会造成流频繁关闭，导致后面无法写
-            if(agentSession.collectCount.get()==0) {
-                try {
-                    //一定要关闭，通知系统后面不能再写数据了，即当前一次会话结束，保证只会打印当次会话日志
-                    fileWriter.close();
-                } catch (IOException e) {
-                    logger.error("文件关闭失败", e);
-                }
-            }
         }
         return STATUS.OVER;
     }

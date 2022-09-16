@@ -28,6 +28,11 @@ public class BaseDataNode {
     private long useTime;
 
     /**
+     * 结束时间
+     */
+    private long endTime;
+
+    /**
      * 应用名称
      */
     private String appName;
@@ -98,6 +103,14 @@ public class BaseDataNode {
         this.modeType = modeType;
     }
 
+    public long getEndTime() {
+        return endTime;
+    }
+
+    public void setEndTime(long endTime) {
+        this.endTime = endTime;
+    }
+
     @Override
     public String toString() {
         return "BaseDataNode{" +
@@ -105,6 +118,7 @@ public class BaseDataNode {
                 ", spanId='" + spanId + '\'' +
                 ", beginTime=" + beginTime +
                 ", useTime=" + useTime +
+                ", endTime=" + endTime +
                 ", appName='" + appName + '\'' +
                 ", host='" + host + '\'' +
                 ", modeType='" + modeType + '\'' +

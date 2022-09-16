@@ -47,6 +47,8 @@
                 <includes>
                   <include>org.javassist:javassist</include>
                   <include>org.junit.platform:junit-platform-commons</include>
+                  <include>org.ow2.asm:asm-debug-all</include>
+                  <include>com.cxylk:asm-coverage</include>
                 </includes>
               </artifactSet>
               <transformers>

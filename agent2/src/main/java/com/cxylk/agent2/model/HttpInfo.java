@@ -5,9 +5,13 @@ package com.cxylk.agent2.model;
  * @date 2022/8/12 下午5:43
  **/
 public class HttpInfo extends BaseDataNode{
-    public String url;
-    public String clientIp;
-    public String error;
+    private String url;
+    private String clientIp;
+    private String error;
+
+    private String httpParams;
+    private String code;
+    private String codeStack;
 
     public String getUrl() {
         return url;
@@ -33,12 +37,39 @@ public class HttpInfo extends BaseDataNode{
         this.error = error;
     }
 
+    public String getHttpParams() {
+        return httpParams;
+    }
+
+    public void setHttpParams(String httpParams) {
+        this.httpParams = httpParams;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    public String getCodeStack() {
+        return codeStack;
+    }
+
+    public void setCodeStack(String codeStack) {
+        this.codeStack = codeStack;
+    }
+
     @Override
     public String toString() {
         return "HttpInfo{" +
-                ", url='" + url + '\'' +
+                "url='" + url + '\'' +
                 ", clientIp='" + clientIp + '\'' +
                 ", error='" + error + '\'' +
+                ", httpParams='" + httpParams + '\'' +
+                ", code='" + code + '\'' +
+                ", codeStack='" + codeStack + '\'' +
                 '}';
     }
 }

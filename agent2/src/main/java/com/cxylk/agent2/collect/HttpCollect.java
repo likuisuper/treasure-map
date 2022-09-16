@@ -5,19 +5,21 @@ import com.cxylk.agent2.base.Collect;
 import com.cxylk.agent2.collect.jdbc.JdbcCollect;
 import com.cxylk.agent2.common.logger.Log;
 import com.cxylk.agent2.common.logger.LogFactory;
+import com.cxylk.agent2.common.util.JsonUtil;
 import com.cxylk.agent2.model.HttpInfo;
+import com.cxylk.coverage.model.StackNode;
+import com.cxylk.coverage.model.StackSession;
 import javassist.*;
 
-import java.io.File;
 import java.io.IOException;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Method;
-import java.nio.file.Files;
 import java.security.ProtectionDomain;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
@@ -98,15 +100,26 @@ public class HttpCollect implements Collect, ClassFileTransformer {
         HttpInfo httpInfo = new HttpInfo();
         httpInfo.setBeginTime(LocalDateTime.now());
         HttpServletRequestAdapter requestAdapter = new HttpServletRequestAdapter(args[0]);
-        httpInfo.url = requestAdapter.getRequestURL();
-        httpInfo.clientIp = requestAdapter.getClientIp();
+        httpInfo.setUrl(requestAdapter.getRequestURL());
+        httpInfo.setClientIp(requestAdapter.getClientIp());
         httpInfo.setSpanId(agentSession.getParentId());
+        //http是我们的采集入口，所以在这里开启动态代码覆盖率采集
+        if(DynamicCodeCollect.isActive()){
+            StackSession session=new StackSession(TARGET_CLASS,TARGET_METHOD);
+        }
         return httpInfo;
     }
 
     public static void end(Object object) {
         HttpInfo httpInfo = (HttpInfo) object;
         httpInfo.setUseTime(LocalDateTime.now().toInstant(ZoneOffset.of("+8")).toEpochMilli() - httpInfo.getBeginTime().toInstant(ZoneOffset.of("+8")).toEpochMilli());
+        //关闭动态代码采集会话
+        StackSession stackSession = StackSession.getCurrent();
+        if(stackSession !=null){
+            List<StackNode> allNodes = stackSession.getAllNodes();
+            httpInfo.setCodeStack(JsonUtil.toJson(allNodes));
+            stackSession.close();
+        }
         //处理收集数据（json处理，日志打印）
         AgentSession agentSession = AgentSession.get();
         agentSession.push(httpInfo);
@@ -117,7 +130,7 @@ public class HttpCollect implements Collect, ClassFileTransformer {
 
     public static void error(Throwable e, Object o) {
         HttpInfo httpInfo = (HttpInfo) o;
-        httpInfo.error = e.getMessage();
+        httpInfo.setError(e.getMessage());
         System.out.println(httpInfo);
     }
 

@@ -23,6 +23,16 @@
 <!--            低于该版本会有bug-->
             <version>1.7.2</version>
         </dependency>
+        <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm-debug-all</artifactId>
+            <version>5.0.3</version>
+        </dependency>
+        <dependency>
+            <groupId>com.cxylk</groupId>
+            <artifactId>asm-coverage</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -68,9 +78,12 @@
                             <artifactSet>
                                 <includes>
                                     <!--                                    <include>jd:jd-core</include>-->
+<!--                                    下面要打进的包在上面都要引入相关的依赖-->
                                     <include>org.javassist:javassist</include>
 <!--                                    解决classfilter找不到的问题-->
                                     <include>org.junit.platform:junit-platform-commons</include>
+                                    <include>org.ow2.asm:asm-debug-all</include>
+                                    <include>com.cxylk:asm-coverage</include>
                                 </includes>
                             </artifactSet>
                             <transformers>

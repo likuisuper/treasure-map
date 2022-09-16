@@ -1,5 +1,6 @@
 package com.cxylk.agent2.base;
 
+import java.lang.reflect.Modifier;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -58,7 +59,7 @@ public class AgentSession {
     static {
         String currentPackage = AgentSession.class.getPackage().getName();
         processorClassList = ReflectionUtils.findAllClassesInPackage(currentPackage.substring(0, currentPackage.lastIndexOf(".")),
-                ClassFilter.of(o -> Processor.class.isAssignableFrom(o) && !o.isInterface()));
+                ClassFilter.of(o -> Processor.class.isAssignableFrom(o) && !o.isInterface()&&!Modifier.isAbstract(o.getModifiers())));
     }
 
     private AgentSession() {
@@ -118,7 +119,7 @@ public class AgentSession {
     }
 
     public void push(Object node) {
-        collectCount.decrementAndGet();
+        //collectCount.decrementAndGet();
         Objects.requireNonNull(node);
         for (Processor processor : processorList) {
             //顺序执行处理器逻辑

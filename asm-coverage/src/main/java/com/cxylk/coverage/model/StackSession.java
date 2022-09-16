@@ -1,6 +1,8 @@
 package com.cxylk.coverage.model;
 
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @author likui
@@ -157,6 +159,10 @@ public class StackSession {
         node.setUseTime(node.getUseTime()+(System.nanoTime()-node.getBeginTime()));
     }
 
+    public static StackSession getCurrent() {
+        return sessions.get();
+    }
+
     public StackNode getHotStack() {
         return hotNode;
     }
@@ -178,6 +184,19 @@ public class StackSession {
         out.println(node.toString());
         for (StackNode n : node.getChilds()) {
             print(n, out);
+        }
+    }
+
+    public List<StackNode> getAllNodes() {
+        List<StackNode> result = new ArrayList<>(nodeSize);
+        result.add(rootNode);
+        putNodes(rootNode, result);
+        return result;
+    }
+    private void putNodes(StackNode parent, List<StackNode> list) {
+        for (StackNode node : parent.getChilds()) {
+            list.add(node);
+            putNodes(node, list);
         }
     }
 }

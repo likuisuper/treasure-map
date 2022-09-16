@@ -36,7 +36,7 @@
             }
           }
         },
-        "httpUrl": {
+        "url": {
           "type": "text",
           "fields": {
             "keyword": {
@@ -80,6 +80,21 @@
               "ignore_above": 256
             }
           }
+        },
+        "code": {
+          "type": "keyword"
+        },
+        "inParam": {
+          "type": "text"
+        },
+        "outParam": {
+          "type": "text"
+        },
+        "errorStack": {
+          "type": "text"
+        },
+        "codeStack": {
+          "type": "text"
         }
       }
     }

@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.lang.instrument.Instrumentation;
+import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.util.List;
 import java.util.Properties;
@@ -41,7 +42,7 @@ public class Agent {
         String currentPackage = Agent.class.getPackage().getName();
         //由于agent在base目录下，所以要得到父路径，才能找到collet的子类
         List<Class<?>> collectClassList = ReflectionUtils.findAllClassesInPackage(currentPackage.substring(0,currentPackage.lastIndexOf(".")),
-                ClassFilter.of(o-> Collect.class.isAssignableFrom(o)&&!o.isInterface()));
+                ClassFilter.of(o-> Collect.class.isAssignableFrom(o)&&!o.isInterface()&&!Modifier.isAbstract(o.getModifiers())));
         collectClassList.stream().map(clazz->{
             try {
                 return (Collect)clazz.newInstance();

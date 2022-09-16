@@ -989,10 +989,13 @@ filebeat.inputs:
     agent_version: "1.0"
   fields_under_root: true
   tags: ["apm"]
-  # 由于日志文件中日志是换行展示的，所以需要匹配换行
-  multiline.pattern: '^\n'
-  multiline.negate: true
-  multiline.match: after
+  # 开启json解析，不然所有字段都会放在message字段中
+  json.keys_under_root: true
+  json.overwrite_keys: true
+  # 如果是换行展示，需要匹配换行，开启了json解析后，就不能再开启下面的配置
+#  multiline.pattern: '^\n'
+#  multiline.negate: true
+#  multiline.match: after
   
 # ---------------------------- Elasticsearch Output ----------------------------
 output.elasticsearch:
@@ -1000,11 +1003,13 @@ output.elasticsearch:
   # 按天创建索引
   index: "apm-%{+YYYY.MM.dd}"
   enable: true
-setup.template.enabled: true
+# 关闭默认的模板配置
+setup.template.enabled: false
 # 使用该JSON文件来指定字段的模板，不然会使用es默认的模板
 setup.template.path: "/Users/likui/Workspace/github/treasure-map/apm.json"
 setup.template.name: "apm"
 setup.template.pattern: "apm-*"
+# 开启新设置的模板
 setup.template.overwrite: true
 setup.ilm.enabled: false
 ~~~
@@ -1036,7 +1041,7 @@ services:
      - elasticsearch
 ~~~
 
-然后在kibana中创建索引即可展示日志信息（先通过接口采集一些信息）。有点美中不足的地方就是日志信息都以JSON串的形式放在message字段中了，而不是日志信息中每个字段都以es中的字段展示，这个也不知道怎么配置，暂时先这样。
+然后在kibana中创建索引即可展示日志信息（先通过接口采集一些信息）。
 
 ## 8、RPC调用链追踪
 
