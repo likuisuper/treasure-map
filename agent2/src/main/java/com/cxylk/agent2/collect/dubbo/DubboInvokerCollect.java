@@ -15,6 +15,7 @@ import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Date;
 import java.util.logging.Logger;
 
 /**
@@ -76,7 +77,7 @@ public class DubboInvokerCollect implements Collect, ClassFileTransformer {
         //为了解决classLoader的问题，这里一样采用适配器方案获取参数信息
         InvocationAdapter invocationAdapter=new InvocationAdapter(args[0]);
         InvokerAdapter invokerAdapter=new InvokerAdapter(invocationAdapter.getInvoker());
-        dubboInfo.setBeginTime(LocalDateTime.now());
+        dubboInfo.setBeginTime(System.currentTimeMillis());
         dubboInfo.setSpanId(agentSession.nextSpanId());
         //todo
         //dubboInfo.setRemoteIp();
@@ -103,7 +104,7 @@ public class DubboInvokerCollect implements Collect, ClassFileTransformer {
             return;
         }
         DubboInfo dubboInfo= (DubboInfo) node;
-        dubboInfo.setUseTime(LocalDateTime.now().toInstant(ZoneOffset.of("+8")).toEpochMilli() - dubboInfo.getBeginTime().toInstant(ZoneOffset.of("+8")).toEpochMilli());
+        dubboInfo.setUseTime(System.currentTimeMillis() - dubboInfo.getBeginTime());
         AgentSession session=AgentSession.get();
         session.push(dubboInfo);
     }

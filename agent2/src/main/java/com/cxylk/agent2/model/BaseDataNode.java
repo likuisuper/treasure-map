@@ -1,6 +1,7 @@
 package com.cxylk.agent2.model;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 
 /**
  * @author likui
@@ -20,7 +21,7 @@ public class BaseDataNode {
     /**
      * 开始时间
      */
-    private LocalDateTime beginTime;
+    private long beginTime;
 
     /**
      * 耗时
@@ -63,11 +64,11 @@ public class BaseDataNode {
         this.spanId = spanId;
     }
 
-    public LocalDateTime getBeginTime() {
+    public Long getBeginTime() {
         return beginTime;
     }
 
-    public void setBeginTime(LocalDateTime beginTime) {
+    public void setBeginTime(Long beginTime) {
         this.beginTime = beginTime;
     }
 

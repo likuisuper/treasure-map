@@ -1,0 +1,101 @@
+node {
+  width: mapData(weight, 0, 100, 30, 30);
+  height: mapData(weight, 0, 100, 30, 30);
+  label:data(name);
+}
+
+
+node.hot{
+  label:data(unionCount);
+  background-color:mapData(unionCount, 0, 10, #CCCCCC,#CC3333);
+}
+
+
+
+node.snapshot{
+    background-color:green;
+}
+
+node.subSelected{
+  background-color:#BBDEFB;
+}
+
+node.find{
+  /*label:data(name);
+  font-size:2em;*/
+  z-index:10;
+  text-background-color:yellow;
+  text-background-opacity:1;
+}
+
+node.table{
+    width: 15;
+    height: 15;
+}
+/*待重构*/
+node.table.subSelected{
+    label:data(name);
+    font-size:1.5em;
+    color:#1976D2;
+}
+node.remote {
+ background-color:#f1a9a0;
+ width: 15;
+ height: 15;
+}
+
+node.code_class{
+    width: 15;
+    height: 15;
+    font-size:0.9em;
+    color:#8a8a8a;
+}
+
+node.app{
+ /* font-weight:bold;
+  background-color: #454545;*/
+  background-image: "https://twemoji.maxcdn.com/2/72x72/1f4bb.png";
+  background-fit:contain;
+  background-clip:none;
+  font-size:0.9em;
+}
+node:selected{
+  z-index:999;
+  color:#0169D9;
+  background-color:#0169D9;
+}
+
+edge{
+  opacity:0.5;
+  width:mapData(weight, 0, 100, 1, 6);
+  curve-style:haystack;
+}
+/*调用*/
+edge.invoke{
+    curve-style:straight;/*直线*/
+    target-arrow-shape: triangle-backcurve;
+   /* target-arrow-color: #AAAAAA;*/
+}
+edge.table{
+    curve-style:bezier; /*贝塞尔曲线*/
+    width:2;
+    target-arrow-shape: triangle-backcurve; /*三角箭头*/
+    font-size:0.8em;
+}
+
+edge.table.update {
+    line-color:#cc6600;
+    target-arrow-color:#cc6600;
+    label: 改;
+}
+edge.table.insert {
+    line-color:green;
+    target-arrow-color:green;
+    label: 增;
+}
+edge.table.delete {
+    line-color:red;
+    target-arrow-color:red;
+    label: 删;
+
+}

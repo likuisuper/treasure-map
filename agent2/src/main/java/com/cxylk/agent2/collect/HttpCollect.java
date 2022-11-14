@@ -19,6 +19,7 @@ import java.lang.reflect.Method;
 import java.security.ProtectionDomain;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -98,7 +99,7 @@ public class HttpCollect implements Collect, ClassFileTransformer {
         //开启会话，一次会话表示收集http、jdbc、service等信息，一次开启即可
         AgentSession agentSession = AgentSession.open();
         HttpInfo httpInfo = new HttpInfo();
-        httpInfo.setBeginTime(LocalDateTime.now());
+        httpInfo.setBeginTime(System.currentTimeMillis());
         HttpServletRequestAdapter requestAdapter = new HttpServletRequestAdapter(args[0]);
         httpInfo.setUrl(requestAdapter.getRequestURL());
         httpInfo.setClientIp(requestAdapter.getClientIp());
@@ -112,7 +113,7 @@ public class HttpCollect implements Collect, ClassFileTransformer {
 
     public static void end(Object object) {
         HttpInfo httpInfo = (HttpInfo) object;
-        httpInfo.setUseTime(LocalDateTime.now().toInstant(ZoneOffset.of("+8")).toEpochMilli() - httpInfo.getBeginTime().toInstant(ZoneOffset.of("+8")).toEpochMilli());
+        httpInfo.setUseTime(System.currentTimeMillis() - httpInfo.getBeginTime());
         //关闭动态代码采集会话
         StackSession stackSession = StackSession.getCurrent();
         if(stackSession !=null){

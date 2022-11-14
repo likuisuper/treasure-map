@@ -1,0 +1,78 @@
+[
+  {
+    "selector": "node",
+    "style": {
+      "background-color": "#bfbfbf",
+      "label": "data(label)",
+      "width": 20,
+      "height": 20,
+      "font-size": "1em"
+    }
+  },
+  {
+    "selector": "node.snapshot",
+    "style": {
+      "label": "data(label)",
+      "font-size": "0.8em",
+      "width": 50,
+      "height": 50,
+      "background-fit":"contain",
+      "background-image": "data(backgroundImage)"
+    }
+  },
+  {
+    "selector": "node.table",
+    "style": {
+      "background-color": "#99CCFF",
+      "label": "data(label)",
+      "width": 50,
+      "height": 50,
+      "font-size": "1em",
+      "text-valign": "bottom",
+      "background-image": "/images/table.png",
+      "background-width": "50%",
+      "background-height": "70%"
+    }
+  },
+  {
+    "selector": "edge",
+    "style": {
+      "width": 1,
+      "curve-style": "straight",
+      "line-color": "#ccc",
+      "font-size": "1em",
+      "font-family": "serif"
+    }
+  },
+  {
+    "selector": "edge.usecaseToTable",
+    "style": {
+      "label": "data(label)",
+      "target-arrow-shape": "triangle"
+    }
+  },
+  {
+    "selector": "edge.red",
+    "style": {
+      "line-color": "red",
+      "target-arrow-color": "red",
+      "color": "red"
+    }
+  },
+  {
+    "selector": "edge.orange",
+    "style": {
+      "line-color": "orange",
+      "target-arrow-color": "orange",
+      "color": "#FF9900"
+    }
+  },
+  {
+    "selector": "edge.green",
+    "style": {
+      "line-color": "green",
+      "target-arrow-color": "green",
+      "color": "green"
+    }
+  }
+]

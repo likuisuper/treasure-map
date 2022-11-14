@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/semantic-ui/2.4.1/semantic.min.js"></script>
+    <link href="https://cdn.bootcdn.net/ajax/libs/semantic-ui/2.4.1/semantic.min.css" rel="stylesheet">
+    <title>Title</title>
+</head>
+<body>
+    <!-- container自动居中 text属性更符合阅读模式，也更常用-->
+    <div class="ui text container">
+    <!-- 纯样式组件 -->
+    <button class="ui button">按钮</button>
+    <button class="ui red button">红色按钮</button>
+    <button class="ui button big">大按钮</button>
+    <button class="ui positive button big">主要按钮</button>
+    <button class="ui secondary button big">次要按钮</button>
+    <button class="ui positive button big zk">展开</button>
+    <button class="ui positive button big gb">关闭</button>
+
+    <!-- 标签 -->
+    <label class="ui label mini">
+        <i class="ui code link icon"></i>
+        标签
+    </label>
+    <i class="ui add link icon"></i>
+    <i class="ui file link icon"></i>
+
+    <!-- 功能组件 -->
+    <!-- 下拉框 search:搜索,multiple:多选-->
+    <div class="ui fluid search multiple selection dropdown">
+        <input type="hidden" name="user">
+        <i class="dropdown icon"></i>
+        <div class="default text">Select Friend</div>
+        <div class="menu">
+          <div class="item" data-value="jenny">
+            Jenny Hess
+          </div>
+          <div class="item" data-value="elliot">
+            Elliot Fu
+          </div>
+          <div class="item" data-value="stevie">
+            Stevie Feliciano
+          </div>
+          <div class="item" data-value="christian">
+            Christian
+          </div>
+          <div class="item" data-value="matt">
+            Matt
+          </div>
+          <div class="item" data-value="justen">
+            Justen Kitsune
+          </div>
+        </div>
+      </div>
+    </div>
+      <script>
+        // 下拉框必须要初始化
+        $(".ui.dropdown").dropdown({
+            on:"click"
+        });
+        // 给展开按钮添加点击事件-展示下拉框
+        $(".ui.zk").click(function(){
+            $(".ui.dropdown").dropdown("show");
+        });
+        // 给展开按钮添加点击事件-隐藏下拉框
+        $(".ui.gb").click(function(){
+            $(".ui.dropdown").dropdown("hide");
+        })
+      </script>
+</body>
+</html>

@@ -11,6 +11,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Date;
 
 /**
  * @author likui
@@ -20,7 +21,7 @@ public class JdbcCollects {
 
     public static SqlInfo begin(Connection connection, String sql) {
         SqlInfo sqlInfo = new SqlInfo();
-        sqlInfo.setBeginTime(LocalDateTime.now());
+        sqlInfo.setBeginTime(System.currentTimeMillis());
         sqlInfo.setSql(sql);
         try {
             sqlInfo.setJdbcUrl(connection.getMetaData().getURL());
@@ -36,7 +37,7 @@ public class JdbcCollects {
         if(AgentSession.get()==null){
             return;
         }
-        info.setUseTime(LocalDateTime.now().toInstant(ZoneOffset.of("+8")).toEpochMilli() - info.getBeginTime().toInstant(ZoneOffset.of("+8")).toEpochMilli());
+        info.setUseTime(System.currentTimeMillis() - info.getBeginTime());
         //采集数据处理
         AgentSession agentSession = AgentSession.get();
         agentSession.push(info);

@@ -16,6 +16,7 @@ import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Date;
 import java.util.logging.Logger;
 
 /**
@@ -81,7 +82,7 @@ public class DubboReceiveCollect implements Collect, ClassFileTransformer {
         String parentId=invocationAdapter.getAttachment(AgentSession.PARENT_ID_KEY);
         //服务端要重传打开会话，以为服务端属于另外一个节点
         AgentSession.open(traceId,parentId);
-        dubboInfo.setBeginTime(LocalDateTime.now());
+        dubboInfo.setBeginTime(System.currentTimeMillis());
         //服务端的spanId就是客户端传过来的spanId
         dubboInfo.setSpanId(parentId);
         dubboInfo.setServiceInterface(invokerAdapter.getInterface().getName());
@@ -105,7 +106,7 @@ public class DubboReceiveCollect implements Collect, ClassFileTransformer {
             return;
         }
         DubboInfo dubboInfo= (DubboInfo) node;
-        dubboInfo.setUseTime(LocalDateTime.now().toInstant(ZoneOffset.of("+8")).toEpochMilli() - dubboInfo.getBeginTime().toInstant(ZoneOffset.of("+8")).toEpochMilli());
+        dubboInfo.setUseTime(System.currentTimeMillis() - dubboInfo.getBeginTime());
         AgentSession session=AgentSession.get();
         session.push(dubboInfo);
         //关闭会话

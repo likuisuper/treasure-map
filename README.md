@@ -1014,6 +1014,14 @@ setup.template.overwrite: true
 setup.ilm.enabled: false
 ~~~
 
+这里有个点需要注意下，当后面使用spring-data-es读取es数据时，因为filebeat采集的日志没有过滤host、agent等信息，就存储到了es，然后就会导致字段映射报错，所以我们需要在配置文件中过滤这些字段：
+
+~~~ xml
+processors:
+  - drop_fields:
+      fields: ["log","input","host","agent","ecs"]
+~~~
+
 es+kibana通过docker-compose启动即可，配置如下：
 
 ~~~yml
@@ -1028,8 +1036,8 @@ services:
     environment:
       - "discovery.type=single-node"
     volumes:
-      - /Users/likui/Workspace/docker/volume/elasticsearch/data #数据文件挂载
-      - /Users/likui/Workspace/docker/volume/elasticsearch/plugins #插件文件挂载
+      - /Users/likui/Workspace/docker/volume/elasticsearch/data:/usr/share/elasticsearch/data #数据文件挂载
+      - /Users/likui/Workspace/docker/volume/elasticsearch/plugins"/usr/share/elasticsearch/piugins #插件文件挂载
   kibana:
     image: kibana:7.16.2
     container_name: kibana
@@ -1229,7 +1237,7 @@ spanId：在一次事件中唯一、并展示出事件的层级关系
 
 可以看到，traceId是全局唯一的，它代表了当前的一次调用。
 
-客户端http信息中，spanId是0，因为我们的入口就是http调用（这里开启了会话，parentId就是spanId），然后在客户端中通过dubbo发起了远程调用，这里客户端产生了一次dubbo事件，所以spanId加1，变成了0.1，然后通过隐私传参将客户端的spanId作为parentId传递给了服务端，所以服务端的dubbo信息中的spanId也是0.1，为什么他们的spanId相同呢？因为这是一次调用中产生的dubbo事件，不管是客户端发起的dubbo调用还是服务端的dubbo响应，他们都是dubbo事件。**并且dubbo事件作为服务端的起始事件，需要重新开启会话，设置traceId和parentId，parentId就是dubbo事件的spanId**。
+客户端http信息中，spanId是0，因为我们的入口就是http调用（这里开启了会话，parentId就是spanId），然后在客户端中通过dubbo发起了远程调用，这里客户端产生了一次dubbo事件，所以spanId加1，变成了0.1，然后通过隐式传参将客户端的spanId作为parentId传递给了服务端，所以服务端的dubbo信息中的spanId也是0.1，为什么他们的spanId相同呢？因为这是一次调用中产生的dubbo事件，不管是客户端发起的dubbo调用还是服务端的dubbo响应，他们都是dubbo事件。**并且dubbo事件作为服务端的起始事件，需要重新开启会话，设置traceId和parentId，parentId就是dubbo事件的spanId**。
 
 最后在服务端访问了数据库，产生了sql事件，它的parentId就是dubbo信息的spanId，所以它的spanId是0.1.1。
 
@@ -1761,5 +1769,91 @@ Reader-->Visitor-->Adapter-->Instrumenter-->writer。
 		super(mv);
 		this.probeInserter = probeInserter;
 	}
+~~~
+
+最后我们看下插桩完成后的代码，以上面那个测试代码为例：
+
+~~~Java
+       public class Test {
+           public Test() {
+               Object object = StackSession.$begin(-8084460584871028501L, "com/cxylk/Test", "<init> ()V");
+               object.equals(12);
+               StackSession.$end(object);
+           }
+
+           /*
+            * WARNING - void declaration
+            */
+           public void A(String string) {
+               void name;
+               Object object = StackSession.$begin(-8084460584871028501L, "com/cxylk/Test", "A (Ljava/lang/String;)V");
+/*14*/         this.B();
+               object.equals(14);
+/*15*/         if (name.equals("lk")) {
+/*17*/             object.equals(17);
+                   StackSession.$end(object);
+                   return;
+               }
+/*19*/         this.C();
+/*21*/         object.equals(21);
+               StackSession.$end(object);
+           }
+
+           public void B() {
+               Object object = StackSession.$begin(-8084460584871028501L, "com/cxylk/Test", "B ()V");
+/*23*/         this.C();
+/*24*/         object.equals(24);
+               StackSession.$end(object);
+           }
+
+           public void C() {
+               Object object = StackSession.$begin(-8084460584871028501L, "com/cxylk/Test", "C ()V");
+/*27*/         System.out.println("hello");
+/*28*/         object.equals(28);
+               StackSession.$end(object);
+           }
+
+           /*
+            * WARNING - void declaration
+            */
+           @org.junit.Test
+           public void codeCoverageTest() throws InterruptedException {
+               void session;
+               Object object = StackSession.$begin(-8084460584871028501L, "com/cxylk/Test", "codeCoverageTest ()V");
+               StackSession stackSession = new StackSession("com.cxylk.Test", "codeCoverageTest");
+               object.equals(32);
+               new Test().A("dsd");
+               object.equals(33);
+/*34*/         session.close();
+               object.equals(34);
+/*35*/         session.printStack(System.out);
+               object.equals(35);
+/*36*/         Thread.sleep(Integer.MAX_VALUE);
+/*37*/         object.equals(37);
+               StackSession.$end(object);
+           }
+
+           /*
+            * WARNING - void declaration
+            */
+           @org.junit.Test
+           public void codeSourceTest() {
+               void codeSource;
+               Object object = StackSession.$begin(-8084460584871028501L, "com/cxylk/Test", "codeSourceTest ()V");
+/*41*/         CodeSource codeSource2 = Hello.class.getProtectionDomain().getCodeSource();
+               object.equals(41);
+/*42*/         System.out.println(codeSource);
+               object.equals(42);
+/*43*/         System.out.println(codeSource.getLocation());
+/*44*/         object.equals(44);
+               StackSession.$end(object);
+           }
+
+           private static /* synthetic */ int $jacocoSize(int n) {
+               int[] nArray;
+               int[] nArray2 = nArray = new int[0];
+               return nArray[n];
+           }
+       }
 ~~~
 

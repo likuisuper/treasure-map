@@ -1,0 +1,72 @@
+body {
+    background: #f7f7f7;
+}
+
+body {
+    overflow: scroll;
+    overflow-x: hidden;
+}
+
+/*流程图dagre-d3 样式 ============begin*/
+
+.node rect {
+    stroke: #999;
+    fill: #ffffff;
+    stroke-width: 1.5px;
+    cursor: pointer;
+}
+
+.node.error rect {
+    stroke: red;
+}
+
+.node rect:hover {
+    stroke: dodgerblue;
+    stroke-width: 1.5px;
+}
+
+.node .label {
+    pointer-events: none;
+}
+
+.labelContent {
+    margin-top: 5px;
+    margin-left: 5px;
+}
+
+.node text {
+    font-weight: 300;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serf;
+    font-size: 14px;
+    pointer-events: none;
+}
+
+.edgePath path {
+    stroke: #333;
+    stroke-width: 1.5px;
+}
+
+.labelTable {
+    margin: 0px;
+    padding: 0px
+}
+
+.labelTitle {
+    font-size: 1.2rem;
+}
+
+.subTitle {
+    color: #9aa1ac;
+}
+
+.labelIcon {
+    margin: 0px 5px 0px 0px;
+    color: #5c5c5c;
+}
+
+.ui.breadcrumb {
+    margin-left: 5px;
+    margin-top: -10px;
+}
+
+/*流程图dagre-d3 样式 ============end*/

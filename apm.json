@@ -1,5 +1,5 @@
 {
-  "template": "apm-*",
+  "template": "apm*",
   "mappings": {
     "_default_": {
       "_all": {
@@ -27,6 +27,21 @@
         "databaseName": {
           "type": "keyword"
         },
+        "remoteIp": {
+          "type": "keyword"
+        },
+        "remoteUrl": {
+          "type": "text"
+        },
+        "serviceInterface": {
+          "type": "keyword"
+        },
+        "serviceMethodName": {
+          "type": "keyword"
+        },
+        "seat": {
+          "type": "keyword"
+        },
         "jdbcUrl": {
           "type": "text",
           "fields": {
@@ -36,7 +51,7 @@
             }
           }
         },
-        "url": {
+        "httpUrl": {
           "type": "text",
           "fields": {
             "keyword": {

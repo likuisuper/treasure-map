@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>dagre-d3</title>
+    <script src="d3.min.js"></script>
+    <script src="dagre-d3.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/semantic-ui/2.4.1/semantic.min.js"></script>
+    <link href="https://cdn.bootcdn.net/ajax/libs/semantic-ui/2.4.1/semantic.min.css" rel="stylesheet">
+</head>
+<body>
+<style id="css">
+    body {
+        font: 300 14px 'Helvetica Neue', Helvetica;
+    }
+
+    .node rect,
+    .node circle,
+    .node ellipse,
+    .node polygon {
+        stroke: #333;
+        fill: #fff;
+        stroke-width: 1.5px;
+    }
+
+    .edgePath path {
+        stroke: #333;
+        fill: #333;
+        stroke-width: 1.5px;
+    }
+</style>
+
+<h1>d3-js Demo演示</h1>
+
+<!--设置画布-->
+<svg width=960 height=600>
+    <g/>
+</svg>
+
+
+<script id="js">
+    // 创建一个graph 图表
+    var g = new dagreD3.graphlib.Graph().setGraph({
+        //左右显示
+        rankdir: "LR"
+    });
+
+    // 添加节点
+    g.setNode("rect", {shape: "rect",label:"矩形"});
+    // 可以结合semantic-ui使用
+    g.setNode("circle", {shape: "circle",label:"<label class='ui label red'><i class='ui icon code' onclick='open1()' ></i> 圆形</label>",labelType:"html"});
+    g.setNode("ellipse", {shape: "ellipse"});
+    g.setNode("diamond", {shape: "diamond"});
+
+    // 添加边,用来关联节点,指明谁指向谁，边的名称
+    g.setEdge("rect", "circle", {label: "包含"});
+    g.setEdge("rect", "ellipse", {label: "关系2"});
+    g.setEdge("ellipse", "diamond", {label: "关系3"});
+
+    // 通过d3选择画布svg
+    var svg = d3.select("svg"),
+        // 选择画布里的g元素
+        inner = svg.select("g");
+
+    // 设置可缩放
+    var zoom = d3.zoom().on("zoom", function () {
+        inner.attr("transform", d3.event.transform);
+    });
+    svg.call(zoom);
+
+    //创建渲染器
+    var render = new dagreD3.render();
+
+    // 运行渲染器
+    render(inner, g);
+
+    // 图表居中显示
+    var initialScale = 0.75;
+    svg.call(zoom.transform, d3.zoomIdentity.translate((svg.attr("width") - g.graph().width * initialScale) / 2, 20).scale(initialScale));
+
+
+
+    /* svg.selectAll("g.node")
+         .on('click', function (id, index, array) {
+             alert("id"+id);
+         });*/
+    function open1() {
+        alert("icon click");
+    }
+</script>
+
+</body>
+</html>

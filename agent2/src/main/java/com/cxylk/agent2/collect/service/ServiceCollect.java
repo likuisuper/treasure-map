@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.security.ProtectionDomain;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
@@ -137,7 +138,7 @@ public class ServiceCollect implements Collect, ClassFileTransformer {
 
     public static ServiceInfo begin(String serviceName,String methodName){
         ServiceInfo serviceInfo=new ServiceInfo();
-        serviceInfo.setBeginTime(LocalDateTime.now());
+        serviceInfo.setBeginTime(System.currentTimeMillis());
         serviceInfo.setServiceName(serviceName);
         serviceInfo.setSimpleName(serviceName.substring(serviceName.lastIndexOf(".")+1));
         serviceInfo.setMethodName(methodName);
@@ -149,7 +150,7 @@ public class ServiceCollect implements Collect, ClassFileTransformer {
         if(agentSession==null){
             return;
         }
-        serviceInfo.setUseTime(LocalDateTime.now().toInstant(ZoneOffset.of("+8")).toEpochMilli() - serviceInfo.getBeginTime().toInstant(ZoneOffset.of("+8")).toEpochMilli());
+        serviceInfo.setUseTime(System.currentTimeMillis() - serviceInfo.getBeginTime());
         //推送采集到的数据
         agentSession.push(serviceInfo);
     }
